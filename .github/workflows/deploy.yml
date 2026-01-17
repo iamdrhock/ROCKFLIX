@@ -14,7 +14,7 @@ jobs:
           host: "103.217.252.147"
           username: "runcloud"
           password: ${{ secrets.PASSWORD }}
-          port: ${{ secrets.PORT || 22 }}
+          port: 22
           script: |
             cd /home/runcloud/webapps/rockflix/current
             git pull origin main
