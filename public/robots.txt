@@ -1,0 +1,23 @@
+# ROCKFLIX - Robots.txt
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /arike/
+Disallow: /auth/
+Disallow: /community/auth/
+Disallow: /settings
+Disallow: /notifications
+
+# Special rules for search engines
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+Disallow: /arike/
+
+User-agent: Bingbot
+Allow: /
+Disallow: /api/
+Disallow: /arike/
+
+# Sitemap location
+Sitemap: https://rockflix.com/sitemap.xml

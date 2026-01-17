@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="152" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#000000"/>
+  <text 
+    x="50%" 
+    y="50%" 
+    font-family="Arial Black, Arial, sans-serif" 
+    font-size="72" 
+    font-weight="900" 
+    text-anchor="middle" 
+    dominant-baseline="middle"
+    letter-spacing="1"
+  >
+    <tspan fill="#BFFF00">ROCK</tspan><tspan fill="#FFFFFF">FLIX</tspan>
+  </text>
+</svg>

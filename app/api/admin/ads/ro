@@ -1,0 +1,126 @@
+import { NextResponse } from "next/server"
+
+import { adminRoute } from "@/lib/security/admin-middleware"
+
+export const GET = adminRoute(async ({ supabase }) => {
+  try {
+    console.log("[admin] GET /api/admin/ads - Starting fetch")
+    const { data, error } = await supabase.from("advertisements").select("*").order("position")
+
+    if (error) {
+      console.error("[admin] Error fetching ads:", error)
+      // Return empty array on error instead of throwing
+      console.log("[admin] Returning empty array due to error")
+      return NextResponse.json([])
+    }
+
+    console.log("[admin] Fetched ads count:", data?.length || 0)
+
+    // Ensure all required positions exist
+    const positions = [
+      "site_header",
+      "movie_detail_bottom",
+      "series_detail_bottom",
+      "watch_above_player",
+      "watch_below_player",
+    ]
+
+    const existingPositions = new Set(data?.map((ad) => ad.position) || [])
+    const missingPositions = positions.filter((pos) => !existingPositions.has(pos))
+
+    // Create missing positions if needed
+    if (missingPositions.length > 0) {
+      console.log("[admin] Creating missing ad positions:", missingPositions)
+      const newAds = missingPositions.map((position) => ({
+        position,
+        content: "",
+        is_active: false,
+      }))
+
+      const { error: insertError } = await supabase.from("advertisements").insert(newAds)
+
+      if (insertError) {
+        console.error("[admin] Error creating missing positions:", insertError)
+        // Continue anyway - return what we have
+      } else {
+        console.log("[admin] Successfully created missing positions")
+        // Fetch again to include newly created positions
+        const { data: updatedData } = await supabase
+          .from("advertisements")
+          .select("*")
+          .order("position")
+        
+        if (updatedData) {
+          console.log("[admin] Returning ads after insert:", updatedData.length)
+          return NextResponse.json(updatedData)
+        }
+      }
+    }
+
+    console.log("[admin] Returning existing ads:", data?.length || 0)
+    return NextResponse.json(data || [])
+  } catch (error) {
+    console.error("[admin] Error in GET /api/admin/ads:", error)
+    return NextResponse.json({ error: "Failed to fetch ads" }, { status: 500 })
+  }
+})
+
+export const PUT = adminRoute(async ({ supabase, request }) => {
+  try {
+    console.log("[admin] PUT /api/admin/ads")
+    const ads = await request.json()
+    console.log("[admin] Ads to save:", ads.length)
+
+    for (const ad of ads) {
+      // First, check if an ad with this position exists
+      const { data: existing, error: fetchError } = await supabase
+        .from("advertisements")
+        .select("id")
+        .eq("position", ad.position)
+        .single()
+
+      if (fetchError && fetchError.code !== "PGRST116") {
+        // PGRST116 is "no rows returned" which is fine
+        console.error("[admin] Error checking existing ad:", fetchError)
+        throw fetchError
+      }
+
+      if (existing) {
+        // Update existing ad
+        console.log("[admin] Updating ad for position:", ad.position, "id:", existing.id)
+        const { error: updateError } = await supabase
+          .from("advertisements")
+          .update({
+            content: ad.content || "",
+            is_active: ad.is_active !== undefined ? ad.is_active : false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id)
+
+        if (updateError) {
+          console.error("[admin] Error updating ad:", updateError)
+          throw updateError
+        }
+      } else {
+        // Insert new ad
+        console.log("[admin] Inserting new ad for position:", ad.position)
+        const { error: insertError } = await supabase.from("advertisements").insert({
+          position: ad.position,
+          content: ad.content || "",
+          is_active: ad.is_active !== undefined ? ad.is_active : false,
+        })
+
+        if (insertError) {
+          console.error("[admin] Error inserting ad:", insertError)
+          throw insertError
+        }
+      }
+    }
+
+    console.log("[admin] Ads saved successfully")
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("[admin] Error in PUT /api/admin/ads:", error)
+    return NextResponse.json({ error: "Failed to save ads" }, { status: 500 })
+  }
+})

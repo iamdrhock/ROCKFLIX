@@ -1,0 +1,262 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Define theme colors with @theme (without inline) so they can be overridden */
+@theme {
+  --color-background: oklch(0.12 0 0);
+  --color-foreground: oklch(0.95 0 0);
+  --color-card: oklch(0.15 0 0);
+  --color-card-foreground: oklch(0.95 0 0);
+  --color-popover: oklch(0.15 0 0);
+  --color-popover-foreground: oklch(0.95 0 0);
+  --color-primary: oklch(0.92 0.18 127);
+  --color-primary-foreground: oklch(0.12 0 0);
+  --color-secondary: oklch(0.25 0 0);
+  --color-secondary-foreground: oklch(0.95 0 0);
+  --color-muted: oklch(0.25 0 0);
+  --color-muted-foreground: oklch(0.6 0 0);
+  --color-accent: oklch(0.92 0.18 127);
+  --color-accent-foreground: oklch(0.12 0 0);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.95 0 0);
+  --color-border: oklch(0.25 0 0);
+  --color-input: oklch(0.25 0 0);
+  --color-ring: oklch(0.92 0.18 127);
+  --color-chart-1: oklch(0.488 0.243 264.376);
+  --color-chart-2: oklch(0.696 0.17 162.48);
+  --color-chart-3: oklch(0.769 0.188 70.08);
+  --color-chart-4: oklch(0.627 0.265 303.9);
+  --color-chart-5: oklch(0.645 0.246 16.439);
+  --color-sidebar: oklch(0.985 0 0);
+  --color-sidebar-foreground: oklch(0.145 0 0);
+  --color-sidebar-primary: oklch(0.205 0 0);
+  --color-sidebar-primary-foreground: oklch(0.985 0 0);
+  --color-sidebar-accent: oklch(0.97 0 0);
+  --color-sidebar-accent-foreground: oklch(0.205 0 0);
+  --color-sidebar-border: oklch(0.922 0 0);
+  --color-sidebar-ring: oklch(0.708 0 0);
+  --radius-lg: 0.5rem;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.375rem;
+  --radius-xl: 0.75rem;
+  /* Added custom z-index values for mobile menu */
+  --z-index-60: 60;
+  --z-index-70: 70;
+}
+
+/* Use @theme inline for fonts that don't need overriding */
+@theme inline {
+  --font-sans: "Geist", "Geist Fallback";
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
+}
+
+/* Override theme colors for dark mode using @layer theme */
+@layer theme {
+  :root {
+    &:is(.dark *) {
+      --color-background: oklch(0.145 0 0);
+      --color-foreground: oklch(0.985 0 0);
+      --color-card: oklch(0.145 0 0);
+      --color-card-foreground: oklch(0.985 0 0);
+      --color-popover: oklch(0.145 0 0);
+      --color-popover-foreground: oklch(0.985 0 0);
+      --color-primary: oklch(0.985 0 0);
+      --color-primary-foreground: oklch(0.205 0 0);
+      --color-secondary: oklch(0.269 0 0);
+      --color-secondary-foreground: oklch(0.985 0 0);
+      --color-muted: oklch(0.269 0 0);
+      --color-muted-foreground: oklch(0.708 0 0);
+      --color-accent: oklch(0.269 0 0);
+      --color-accent-foreground: oklch(0.985 0 0);
+      --color-destructive: oklch(0.396 0.141 25.723);
+      --color-destructive-foreground: oklch(0.637 0.237 25.331);
+      --color-border: oklch(0.269 0 0);
+      --color-input: oklch(0.269 0 0);
+      --color-ring: oklch(0.439 0 0);
+      --color-chart-1: oklch(0.488 0.243 264.376);
+      --color-chart-2: oklch(0.696 0.17 162.48);
+      --color-chart-3: oklch(0.769 0.188 70.08);
+      --color-chart-4: oklch(0.627 0.265 303.9);
+      --color-chart-5: oklch(0.645 0.246 16.439);
+      --color-sidebar: oklch(0.205 0 0);
+      --color-sidebar-foreground: oklch(0.985 0 0);
+      --color-sidebar-primary: oklch(0.488 0.243 264.376);
+      --color-sidebar-primary-foreground: oklch(0.985 0 0);
+      --color-sidebar-accent: oklch(0.269 0 0);
+      --color-sidebar-accent-foreground: oklch(0.985 0 0);
+      --color-sidebar-border: oklch(0.269 0 0);
+      --color-sidebar-ring: oklch(0.439 0 0);
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+    /* Fix for Android browsers - ensure box-sizing is applied */
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    box-sizing: border-box;
+  }
+  
+  html {
+    /* Prevent text size adjustment on orientation change */
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Smooth scrolling for better UX on Android */
+    -webkit-overflow-scrolling: touch;
+    /* Force viewport on old Android */
+    width: 100%;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    /* Fix for Android rendering issues */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    width: 100%;
+    max-width: 100%;
+    position: relative;
+    margin: 0;
+    padding: 0;
+  }
+  
+  /* Prevent horizontal scroll on main site pages, but allow in admin panel */
+  body:not([data-admin-panel]) {
+    overflow-x: hidden;
+  }
+  
+  /* Allow horizontal scrolling in admin panel when needed */
+  [data-admin-panel] {
+    overflow-x: auto;
+  }
+  
+  [data-admin-panel] main {
+    overflow-x: visible;
+    min-width: 0;
+  }
+  
+  /* Make admin button rows horizontally scrollable */
+  [data-admin-panel] .flex.gap-2 {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  [data-admin-panel] .flex.gap-2::-webkit-scrollbar {
+    height: 6px;
+  }
+  
+  [data-admin-panel] .flex.gap-2::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  [data-admin-panel] .flex.gap-2::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+  }
+  
+  [data-admin-panel] .flex.gap-2::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+  
+
+  /* Add proper container boxing for desktop screens */
+  .container {
+    width: 100%;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    /* Fix for Android tablets */
+    min-width: 0;
+    position: relative;
+  }
+
+  @media (min-width: 640px) {
+    .container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+
+  /* Tablet-specific fixes (Android tablets typically 768px-1024px) */
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+    
+    /* Ensure images don't overflow on tablets */
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+    
+    /* Fix for Next.js Image component on Android tablets */
+    img[src*="placeholder"] {
+      object-fit: cover;
+    }
+  }
+  
+  /* Minimal fallbacks for very old browsers - only when grid is not supported */
+  @supports not (display: grid) {
+    .grid {
+      display: -webkit-box;
+      display: -webkit-flex;
+      display: -ms-flexbox;
+      display: flex;
+      -webkit-flex-wrap: wrap;
+      -ms-flex-wrap: wrap;
+      flex-wrap: wrap;
+    }
+  }
+  
+  /* Fix for backdrop-filter on Android */
+  @supports not (backdrop-filter: blur(8px)) {
+    .backdrop-blur {
+      background-color: rgba(0, 0, 0, 0.8);
+    }
+  }
+  
+  /* Ensure content images are responsive (exclude header and explicitly sized images) */
+  main img:not([style*="width"]):not([style*="height"]),
+  main picture:not([style*="width"]):not([style*="height"]),
+  main video:not([style*="width"]):not([style*="height"]) {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  /* Only apply display:block to images that need it, not header images */
+  main img {
+    display: block;
+  }
+
+  /* Hide scrollbar for horizontal navigation on mobile */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    /* Android WebKit fix */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+  
+}

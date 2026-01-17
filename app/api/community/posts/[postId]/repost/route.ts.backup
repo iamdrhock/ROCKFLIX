@@ -1,0 +1,101 @@
+import { createClient } from "@/lib/supabase/server"
+import { NextResponse } from "next/server"
+
+export async function POST(request: Request, { params }: { params: Promise<{ postId: string }> }) {
+  try {
+    const { postId } = await params
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { quote_content } = await request.json()
+
+    const { data: existing } = await supabase
+      .from("post_reposts")
+      .select("id")
+      .eq("post_id", postId)
+      .eq("user_id", user.id)
+      .single()
+
+    if (existing) {
+      return NextResponse.json({ error: "Already reposted" }, { status: 400 })
+    }
+
+    const { data: repost, error } = await supabase
+      .from("post_reposts")
+      .insert({
+        post_id: postId,
+        user_id: user.id,
+        quote_content: quote_content || null,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error("[v0] Error creating repost:", error)
+      throw error
+    }
+
+    return NextResponse.json({ repost })
+  } catch (error) {
+    console.error("Error creating repost:", error)
+    return NextResponse.json({ error: "Failed to create repost" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ postId: string }> }) {
+  try {
+    const { postId } = await params
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { error } = await supabase.from("post_reposts").delete().eq("post_id", postId).eq("user_id", user.id)
+
+    if (error) {
+      console.error("[v0] Error deleting repost:", error)
+      throw error
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error deleting repost:", error)
+    return NextResponse.json({ error: "Failed to delete repost" }, { status: 500 })
+  }
+}
+
+export async function GET(request: Request, { params }: { params: Promise<{ postId: string }> }) {
+  try {
+    const { postId } = await params
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ isReposted: false })
+    }
+
+    const { data } = await supabase
+      .from("post_reposts")
+      .select("id")
+      .eq("post_id", postId)
+      .eq("user_id", user.id)
+      .single()
+
+    return NextResponse.json({ isReposted: !!data })
+  } catch (error) {
+    console.error("Error checking repost status:", error)
+    return NextResponse.json({ isReposted: false })
+  }
+}
