@@ -11,8 +11,8 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
+          host: "103.217.252.147"
+          username: "runcloud"
           password: ${{ secrets.PASSWORD }}
           port: ${{ secrets.PORT || 22 }}
           script: |
