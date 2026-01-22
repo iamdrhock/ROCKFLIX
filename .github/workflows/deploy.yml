@@ -17,7 +17,8 @@ jobs:
           port: 22
           script: |
             cd /home/runcloud/webapps/rockflix/current
-            git pull origin main
+            git fetch --all
+            git reset --hard origin/main
             cp .env.production.rockflix .env.production
             npm install
             npm run build
