@@ -35,7 +35,7 @@ async function getAccessToken(): Promise<string> {
 
   const client = await auth.getClient()
   const accessToken = await client.getAccessToken()
-  
+
   if (!accessToken.token) {
     throw new Error('Failed to get access token')
   }
@@ -99,7 +99,7 @@ export async function sendPushNotification(options: SendPushOptions): Promise<{
   const concurrencyLimit = 100
   for (let i = 0; i < tokens.length; i += concurrencyLimit) {
     const batch = tokens.slice(i, i + concurrencyLimit)
-    
+
     const batchPromises = batch.map(async (token) => {
       try {
         // Build FCM V1 message format
@@ -133,12 +133,12 @@ export async function sendPushNotification(options: SendPushOptions): Promise<{
         })
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: await response.text() }))
+          const errorData = await response.json().catch(async () => ({ error: await response.text() }))
           throw new Error(errorData.error?.message || `HTTP ${response.status}`)
         }
 
         const result = await response.json()
-        
+
         // V1 API returns success if name field is present
         if (result.name) {
           return { token, success: true }
@@ -147,18 +147,18 @@ export async function sendPushNotification(options: SendPushOptions): Promise<{
         }
       } catch (error: any) {
         const errorMessage = error.message || 'Unknown error'
-        
+
         // Check for invalid token errors
         if (errorMessage.includes('NOT_FOUND') || errorMessage.includes('INVALID_ARGUMENT')) {
           console.log(`[FCM] Invalid token detected: ${token.substring(0, 20)}...`)
         }
-        
+
         return { token, success: false, error: errorMessage }
       }
     })
 
     const batchResults = await Promise.all(batchPromises)
-    
+
     batchResults.forEach((result) => {
       allResults.push(result)
       if (result.success) {
@@ -209,14 +209,14 @@ export async function sendBroadcastPush(
         WHERE is_active = true
       `
       const params: any[] = []
-      
+
       if (platform !== 'all') {
         sql += ` AND platform = $1`
         params.push(platform)
       }
-      
+
       sql += ` ORDER BY last_used_at DESC`
-      
+
       if (limit) {
         sql += ` LIMIT $${params.length + 1}`
         params.push(limit)
