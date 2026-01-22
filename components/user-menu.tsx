@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
-import { User, Settings } from "lucide-react"
+import { User, Settings, Heart, Bookmark } from "lucide-react"
 import { SignOutButton } from "@/components/sign-out-button"
 import { useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
@@ -46,7 +46,7 @@ export function UserMenu({ showTalkFlixSettings = false }: { showTalkFlixSetting
 
   // Show loading state while checking session
   if (status === "loading") return null
-  
+
   // Don't show menu if not logged in
   if (!user) return null
 
@@ -104,6 +104,18 @@ export function UserMenu({ showTalkFlixSettings = false }: { showTalkFlixSetting
               <Link href="/profile" className="cursor-pointer">
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/profile/watchlist" className="cursor-pointer">
+                <Bookmark className="mr-2 h-4 w-4" />
+                <span>Watchlist</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/profile/favorites" className="cursor-pointer">
+                <Heart className="mr-2 h-4 w-4" />
+                <span>Favorites</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>

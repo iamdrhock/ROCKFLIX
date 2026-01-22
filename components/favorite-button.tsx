@@ -8,9 +8,10 @@ import { useSession } from "next-auth/react"
 
 interface FavoriteButtonProps {
   movieId: number
+  size?: "default" | "sm" | "lg" | "icon" | null | undefined
 }
 
-export function FavoriteButton({ movieId }: FavoriteButtonProps) {
+export function FavoriteButton({ movieId, size = "lg" }: FavoriteButtonProps) {
   const [isFavorite, setIsFavorite] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { data: session, status } = useSession()
@@ -19,7 +20,7 @@ export function FavoriteButton({ movieId }: FavoriteButtonProps) {
 
   useEffect(() => {
     if (status === "loading") return
-    
+
     if (isAuthenticated) {
       checkFavoriteStatus()
     } else {
@@ -77,7 +78,7 @@ export function FavoriteButton({ movieId }: FavoriteButtonProps) {
       onClick={toggleFavorite}
       disabled={isLoading}
       variant={isFavorite ? "default" : "outline"}
-      size="lg"
+      size={size}
       className="gap-2"
     >
       <Heart className={`h-5 w-5 ${isFavorite ? "fill-current" : ""}`} />

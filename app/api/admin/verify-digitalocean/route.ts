@@ -67,7 +67,7 @@ export const GET = adminRoute(async ({ request }) => {
       const totalRecords = Object.values(counts).reduce((sum, count) => sum + count, 0)
 
       // Get sample data from key tables
-      const samples: Record<string, any[]> = {}
+      const samples: Record<string, any> = {}
       const keyTables = ["movies", "site_settings", "admin_users", "genres", "actors", "players"]
 
       for (const table of keyTables) {

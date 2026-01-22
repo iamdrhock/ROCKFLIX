@@ -55,7 +55,7 @@ export async function trackViewInContabo(data: {
 }): Promise<void> {
   // Fix sequence proactively before insert
   await fixViewAnalyticsSequence()
-  
+
   try {
     await queryContabo(
       `INSERT INTO view_analytics (
@@ -79,7 +79,7 @@ export async function trackViewInContabo(data: {
     if (error?.code === '23505') {
       console.warn(`[Contabo] Duplicate key error, fixing sequence and retrying...`)
       await fixViewAnalyticsSequence()
-      
+
       // Retry the insert
       try {
         await queryContabo(
@@ -105,7 +105,7 @@ export async function trackViewInContabo(data: {
         throw retryError
       }
     }
-    
+
     console.error(`[Contabo] Error tracking view:`, error)
     console.error(`[Contabo] Error details:`, {
       message: error?.message,
@@ -231,14 +231,14 @@ export async function upsertMovie(data: MovieData): Promise<{ id: number }> {
     // Update existing movie - preserve existing image URLs if new ones are null/empty
     const existingPosterUrl = existing.rows[0].poster_url
     const existingBackdropUrl = existing.rows[0].backdrop_url
-    
+
     // Use new image URLs if they're not null/empty, otherwise keep existing ones
     const posterUrl = data.poster_url || existingPosterUrl
     const backdropUrl = data.backdrop_url || existingBackdropUrl
-    
+
     console.log(`[Contabo] Updating movie "${data.title}" (imdb_id: ${data.imdb_id})`)
     console.log(`[Contabo] Image URLs - Poster: ${posterUrl || 'null'} (was: ${existingPosterUrl || 'null'}), Backdrop: ${backdropUrl || 'null'} (was: ${existingBackdropUrl || 'null'})`)
-    
+
     const result = await queryContabo<{ id: number }>(
       `UPDATE movies SET
         title = $1,
@@ -305,7 +305,7 @@ export async function upsertMovie(data: MovieData): Promise<{ id: number }> {
       ]
     )
     console.log(`[Contabo] ✅ Movie inserted with ID: ${result.rows[0].id}, created_at: ${result.rows[0].created_at}`)
-    
+
     // Verify the movie can be found immediately after insert
     const verify = await queryContabo<{ id: number; title: string }>(
       'SELECT id, title FROM movies WHERE id = $1',
@@ -316,7 +316,7 @@ export async function upsertMovie(data: MovieData): Promise<{ id: number }> {
     } else {
       console.log(`[Contabo] ✅ Verified: Movie ${result.rows[0].id} exists in database`)
     }
-    
+
     return result.rows[0]
   }
 }
@@ -330,11 +330,11 @@ export async function findOrCreateCountry(name: string): Promise<number | null> 
     'SELECT id FROM countries WHERE name = $1',
     [name]
   )
-  
+
   if (existing.rows[0]) {
     return existing.rows[0].id
   }
-  
+
   // Create new
   const result = await queryContabo<{ id: number }>(
     'INSERT INTO countries (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
@@ -372,22 +372,22 @@ export async function findOrCreateGenre(name: string): Promise<number | null> {
       'SELECT id FROM genres WHERE name = $1',
       [name]
     )
-    
+
     if (existing.rows[0]) {
       console.log(`[Contabo] Found existing genre ${existing.rows[0].id}: ${name}`)
       return existing.rows[0].id
     }
-    
+
     const result = await queryContabo<{ id: number }>(
       'INSERT INTO genres (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id',
       [name]
     )
-    
+
     if (!result.rows || result.rows.length === 0) {
       console.error(`[Contabo] Failed to insert genre: ${name}`)
       return null
     }
-    
+
     console.log(`[Contabo] Created new genre ${result.rows[0].id}: ${name}`)
     return result.rows[0].id
   } catch (error: any) {
@@ -403,17 +403,17 @@ export async function findOrCreateGenre(name: string): Promise<number | null> {
 export async function fixRelationshipSequences(): Promise<void> {
   try {
     console.log(`[Contabo] Fixing relationship table sequences...`)
-    
+
     // Fix movie_genres sequence
     await queryContabo(
       `SELECT setval('movie_genres_id_seq', COALESCE((SELECT MAX(id) FROM movie_genres), 0) + 1, false)`
     )
-    
+
     // Fix movie_actors sequence
     await queryContabo(
       `SELECT setval('movie_actors_id_seq', COALESCE((SELECT MAX(id) FROM movie_actors), 0) + 1, false)`
     )
-    
+
     console.log(`[Contabo] ✅ Fixed relationship table sequences`)
   } catch (error: any) {
     console.warn(`[Contabo] ⚠️ Warning: Could not fix sequences:`, error.message)
@@ -431,7 +431,7 @@ export async function upsertMovieGenre(movieId: number, genreId: number): Promis
       [movieId, genreId]
     )
     console.log(`[Contabo] ✅ Linked movie ${movieId} to genre ${genreId} (rows affected: ${result.rowCount || 0})`)
-    
+
     // Verify the insert actually worked
     const verify = await queryContabo<{ id: number }>(
       'SELECT id FROM movie_genres WHERE movie_id = $1 AND genre_id = $2',
@@ -453,7 +453,7 @@ export async function upsertMovieGenre(movieId: number, genreId: number): Promis
           `SELECT setval('movie_genres_id_seq', COALESCE((SELECT MAX(id) FROM movie_genres), 0) + 1, false)`
         )
         console.log(`[Contabo] ✅ Fixed movie_genres sequence`)
-        
+
         // Retry the insert
         const retryResult = await queryContabo(
           'INSERT INTO movie_genres (movie_id, genre_id) VALUES ($1, $2) ON CONFLICT (movie_id, genre_id) DO NOTHING',
@@ -481,7 +481,7 @@ export async function findOrCreateActor(name: string, photoUrl: string | null = 
       'SELECT id, photo_url FROM actors WHERE name = $1',
       [name]
     )
-    
+
     if (existing.rows[0]) {
       const actor = existing.rows[0]
       // Update photo if actor exists but has no photo and we have one
@@ -494,17 +494,17 @@ export async function findOrCreateActor(name: string, photoUrl: string | null = 
       }
       return actor.id
     }
-    
+
     const result = await queryContabo<{ id: number }>(
       'INSERT INTO actors (name, photo_url) VALUES ($1, $2) RETURNING id',
       [name, photoUrl]
     )
-    
+
     if (!result.rows || result.rows.length === 0) {
       console.error(`[Contabo] Failed to insert actor: ${name}`)
       return null
     }
-    
+
     console.log(`[Contabo] Created new actor ${result.rows[0].id}: ${name}`)
     return result.rows[0].id
   } catch (error: any) {
@@ -519,7 +519,7 @@ export async function findOrCreateActor(name: string, photoUrl: string | null = 
 export async function upsertMovieActor(movieId: number, actorId: number, characterName?: string | null): Promise<void> {
   try {
     console.log(`[Contabo] upsertMovieActor called: movieId=${movieId}, actorId=${actorId}, characterName=${characterName || 'null'}`)
-    
+
     // Use ON CONFLICT directly since we have the unique constraint on (movie_id, actor_id)
     // This will INSERT if new, or UPDATE character_name if exists
     const result = await queryContabo(
@@ -530,7 +530,7 @@ export async function upsertMovieActor(movieId: number, actorId: number, charact
        WHERE movie_actors.character_name IS NULL OR EXCLUDED.character_name IS NOT NULL`,
       [movieId, actorId, characterName || null]
     )
-    
+
     console.log(`[Contabo] ✅ Linked movie ${movieId} to actor ${actorId}${characterName ? ` as "${characterName}"` : ''} (rows affected: ${result.rowCount || 0})`)
   } catch (error: any) {
     // Check if it's a duplicate key error on the id column (sequence issue)
@@ -543,7 +543,7 @@ export async function upsertMovieActor(movieId: number, actorId: number, charact
           `SELECT setval('movie_actors_id_seq', (SELECT MAX(id) FROM movie_actors) + 1, false)`
         )
         console.log(`[Contabo] ✅ Fixed movie_actors sequence`)
-        
+
         // Retry the insert
         const retryResult = await queryContabo(
           `INSERT INTO movie_actors (movie_id, actor_id, character_name) 
@@ -564,7 +564,7 @@ export async function upsertMovieActor(movieId: number, actorId: number, charact
         'SELECT id FROM movie_actors WHERE movie_id = $1 AND actor_id = $2 LIMIT 1',
         [movieId, actorId]
       )
-      
+
       if (existing.rows.length === 0) {
         const insertResult = await queryContabo(
           'INSERT INTO movie_actors (movie_id, actor_id, character_name) VALUES ($1, $2, $3)',
@@ -598,7 +598,7 @@ export async function upsertMovieActor(movieId: number, actorId: number, charact
 export async function deleteMovieRelationships(movieId: number): Promise<void> {
   try {
     console.log(`[Contabo] deleteMovieRelationships called for movie ID: ${movieId}`)
-    
+
     // Delete all relationships in parallel
     await Promise.all([
       queryContabo('DELETE FROM movie_actors WHERE movie_id = $1', [movieId]),
@@ -606,7 +606,7 @@ export async function deleteMovieRelationships(movieId: number): Promise<void> {
       queryContabo('DELETE FROM movie_tags WHERE movie_id = $1', [movieId]),
       queryContabo('DELETE FROM movie_countries WHERE movie_id = $1', [movieId]),
     ])
-    
+
     console.log(`[Contabo] ✅ Deleted all relationships for movie ${movieId}`)
   } catch (error: any) {
     console.error(`[Contabo] ❌ ERROR deleting relationships for movie ${movieId}:`, error.message)
@@ -623,11 +623,11 @@ export async function findOrCreateTag(name: string, slug: string): Promise<numbe
       'SELECT id FROM tags WHERE name = $1',
       [name]
     )
-    
+
     if (existing.rows[0]) {
       return existing.rows[0].id
     }
-    
+
     const result = await queryContabo<{ id: number }>(
       'INSERT INTO tags (name, slug) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET slug = EXCLUDED.slug RETURNING id',
       [name, slug]
@@ -736,7 +736,7 @@ async function validateUserId(userId: string): Promise<string | null> {
   if (uuidRegex.test(userId)) {
     return userId
   }
-  
+
   // If it's not a UUID (e.g., Google OAuth ID), try to find the UUID in users table
   // This happens when a user is logged in with an old token that has the OAuth ID
   console.warn(`[Contabo] User ID is not a UUID format: ${userId}, looking up UUID from users table...`)
@@ -746,25 +746,25 @@ async function validateUserId(userId: string): Promise<string | null> {
       `SELECT "userId" FROM accounts WHERE "providerAccountId" = $1 AND provider = 'google' LIMIT 1`,
       [userId]
     )
-    
+
     if (accountResult.rows.length > 0 && accountResult.rows[0].userId) {
       const foundUserId = accountResult.rows[0].userId
       console.log(`[Contabo] ✅ Found UUID for OAuth ID ${userId}: ${foundUserId}`)
       return foundUserId
     }
-    
+
     // If accounts table uses snake_case
     const accountResultSnake = await queryContabo<{ user_id: string }>(
       `SELECT user_id FROM accounts WHERE provider_account_id = $1 AND provider = 'google' LIMIT 1`,
       [userId]
     )
-    
+
     if (accountResultSnake.rows.length > 0 && accountResultSnake.rows[0].user_id) {
       const foundUserId = accountResultSnake.rows[0].user_id
       console.log(`[Contabo] ✅ Found UUID for OAuth ID ${userId}: ${foundUserId}`)
       return foundUserId
     }
-    
+
     console.error(`[Contabo] ❌ Could not find UUID for OAuth ID: ${userId}`)
     return null
   } catch (error) {
@@ -788,7 +788,10 @@ export async function getFavoritesFromContabo(userId: string): Promise<any[]> {
       m.title,
       m.poster_url,
       m.release_date,
-      m.rating
+      m.rating,
+      m.type,
+      m.quality,
+      m.imdb_id
     FROM favorites f
     INNER JOIN movies m ON f.movie_id = m.id
     WHERE f.user_id = $1
@@ -801,7 +804,11 @@ export async function getFavoritesFromContabo(userId: string): Promise<any[]> {
     poster_url: row.poster_url,
     release_date: row.release_date,
     rating: row.rating,
+    type: row.type,
+    quality: row.quality,
+    imdb_id: row.imdb_id,
   }))
+
 }
 
 export async function checkFavoriteFromContabo(userId: string, movieId: number): Promise<boolean> {
@@ -866,7 +873,9 @@ export async function getWatchlistFromContabo(userId: string): Promise<any[]> {
       m.poster_url,
       m.type,
       m.rating,
-      m.release_date
+      m.release_date,
+      m.quality,
+      m.imdb_id
     FROM watchlist w
     INNER JOIN movies m ON w.movie_id = m.id
     WHERE w.user_id = $1
@@ -884,6 +893,8 @@ export async function getWatchlistFromContabo(userId: string): Promise<any[]> {
       type: row.type,
       rating: row.rating,
       release_date: row.release_date,
+      quality: row.quality,
+      imdb_id: row.imdb_id,
     },
   }))
 }
@@ -958,11 +969,11 @@ export async function addCommentToContabo(
        RETURNING id, movie_id, user_id, user_name, comment_text, created_at`,
       [movieId, userId, userName, commentText, isSpam, spamScore, moderationStatus]
     )
-    
+
     if (!result.rows || result.rows.length === 0) {
       throw new Error("Comment insert returned no rows")
     }
-    
+
     console.log(`[Contabo] Comment added successfully: id=${result.rows[0].id}`)
     return result.rows[0]
   } catch (error: any) {
@@ -994,7 +1005,7 @@ export async function incrementProfileFieldContabo(
   if (!allowedFields.includes(fieldName)) {
     throw new Error(`Invalid field name: ${fieldName}`)
   }
-  
+
   // Use parameterized query with proper column name validation
   await queryContabo(
     `UPDATE profiles 
@@ -1064,7 +1075,7 @@ export async function updateCommentModerationInContabo(
 
     values.push(commentId) // For WHERE clause
     const sql = `UPDATE comments SET ${updateFields.join(', ')} WHERE id = $${paramIndex}`
-    
+
     await queryContabo(sql, values)
     console.log(`[Contabo] Updated comment moderation for comment ${commentId}`)
   } catch (error: any) {
@@ -1181,7 +1192,7 @@ export async function addDownloadLinkToContabo(
 ): Promise<any> {
   try {
     const { queryContabo } = await import('./contabo-pool')
-    
+
     // Build SQL with proper handling of episode_id
     const sql = `
       INSERT INTO download_links (
@@ -1199,7 +1210,7 @@ export async function addDownloadLinkToContabo(
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
       RETURNING *
     `
-    
+
     const params = [
       movieId,
       episodeId || null,
@@ -1211,15 +1222,15 @@ export async function addDownloadLinkToContabo(
       uploadedBy || "admin",
       'active'
     ]
-    
+
     console.log(`[Contabo] Inserting download link:`, { movieId, episodeId, quality, format, linkUrl, provider })
-    
+
     const result = await queryContabo<any>(sql, params)
-    
+
     if (result.rows.length === 0) {
       throw new Error('Failed to insert download link - no rows returned')
     }
-    
+
     console.log(`[Contabo] Successfully added download link for movie ${movieId}${episodeId ? `, episode ${episodeId}` : ''}, quality: ${quality}`)
     return result.rows[0]
   } catch (error: any) {
@@ -1251,7 +1262,7 @@ export async function updateDownloadLinkInContabo(
 ): Promise<any> {
   try {
     const { queryContabo } = await import('./contabo-pool')
-    
+
     const updateFields: string[] = []
     const values: any[] = []
     let paramIndex = 1
@@ -1287,7 +1298,7 @@ export async function updateDownloadLinkInContabo(
 
     // Always update updated_at
     updateFields.push(`updated_at = NOW()`)
-    
+
     // Add id to values for WHERE clause
     values.push(id)
     const idParamIndex = paramIndex
@@ -1298,15 +1309,15 @@ export async function updateDownloadLinkInContabo(
       WHERE id = $${idParamIndex} 
       RETURNING *
     `
-    
+
     console.log(`[Contabo] Updating download link ${id} with fields:`, updateFields)
-    
+
     const result = await queryContabo<any>(sql, values)
-    
+
     if (result.rows.length === 0) {
       throw new Error('Download link not found')
     }
-    
+
     console.log(`[Contabo] Successfully updated download link ${id}`)
     return result.rows[0]
   } catch (error: any) {
@@ -1321,17 +1332,17 @@ export async function updateDownloadLinkInContabo(
 export async function deleteDownloadLinkFromContabo(id: number): Promise<void> {
   try {
     const { queryContabo } = await import('./contabo-pool')
-    
+
     const sql = `DELETE FROM download_links WHERE id = $1 RETURNING id`
-    
+
     console.log(`[Contabo] Deleting download link ${id}`)
-    
+
     const result = await queryContabo<{ id: number }>(sql, [id])
-    
+
     if (result.rows.length === 0) {
       throw new Error('Download link not found')
     }
-    
+
     console.log(`[Contabo] Successfully deleted download link ${id}`)
   } catch (error: any) {
     console.error(`[Contabo] Error deleting download link:`, error)
@@ -1351,7 +1362,7 @@ export async function addBlogPostToContabo(
 ): Promise<any> {
   try {
     const { queryContabo } = await import('./contabo-pool')
-    
+
     const sql = `
       INSERT INTO blog_posts (
         title,
@@ -1364,7 +1375,7 @@ export async function addBlogPostToContabo(
       ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
       RETURNING *
     `
-    
+
     const params = [
       title,
       slug,
@@ -1372,13 +1383,13 @@ export async function addBlogPostToContabo(
       featuredImageUrl || null,
       published
     ]
-    
+
     const result = await queryContabo<any>(sql, params)
-    
+
     if (result.rows.length === 0) {
       throw new Error('Failed to insert blog post')
     }
-    
+
     console.log(`[Contabo] Added blog post: ${title} (slug: ${slug})`)
     return result.rows[0]
   } catch (error: any) {
@@ -1407,43 +1418,43 @@ export async function updateBlogPostInContabo(
       featuredImageUrl,
       published
     })
-    
+
     const { queryContabo } = await import('./contabo-pool')
-    
+
     const updates: string[] = []
     const params: any[] = []
     let paramIndex = 1
-    
+
     updates.push(`title = $${paramIndex++}`)
     params.push(title)
-    
+
     updates.push(`slug = $${paramIndex++}`)
     params.push(slug)
-    
+
     updates.push(`body = $${paramIndex++}`)
     params.push(body)
-    
+
     if (featuredImageUrl !== undefined) {
       updates.push(`featured_image_url = $${paramIndex++}`)
       params.push(featuredImageUrl || null)
     }
-    
+
     if (published !== undefined) {
       updates.push(`published = $${paramIndex++}`)
       params.push(published)
     }
-    
+
     updates.push(`updated_at = NOW()`)
-    
+
     params.push(id)
-    
+
     const sql = `
       UPDATE blog_posts
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
       RETURNING *
     `
-    
+
     console.log(`[Contabo] 📝 Executing SQL:`, {
       sql: sql.replace(/\s+/g, ' ').trim(),
       paramCount: params.length,
@@ -1453,20 +1464,20 @@ export async function updateBlogPostInContabo(
         value: typeof p === 'string' ? p.substring(0, 50) + (p.length > 50 ? '...' : '') : p
       }))
     })
-    
+
     const result = await queryContabo<any>(sql, params)
-    
+
     console.log(`[Contabo] 📊 Query result:`, {
       hasResult: !!result,
       hasRows: !!result?.rows,
       rowCount: result?.rows?.length
     })
-    
+
     if (!result || !result.rows || result.rows.length === 0) {
       console.error(`[Contabo] ❌ Blog post update returned no rows for id: ${id}`)
       throw new Error(`Blog post not found or update failed for id: ${id}`)
     }
-    
+
     const updatedPost = result.rows[0]
     console.log(`[Contabo] ✅ Updated blog post: ${id}`, {
       id: updatedPost.id,
@@ -1500,7 +1511,7 @@ export async function addCustomPageToContabo(
 ): Promise<any> {
   try {
     const { queryContabo } = await import('./contabo-pool')
-    
+
     const sql = `
       INSERT INTO custom_pages (
         title,
@@ -1513,7 +1524,7 @@ export async function addCustomPageToContabo(
       ) VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
       RETURNING *
     `
-    
+
     const params = [
       title,
       slug.toLowerCase().replace(/\s+/g, "-"),
@@ -1521,13 +1532,13 @@ export async function addCustomPageToContabo(
       featuredImageUrl || null,
       published
     ]
-    
+
     const result = await queryContabo<any>(sql, params)
-    
+
     if (result.rows.length === 0) {
       throw new Error('Failed to insert custom page')
     }
-    
+
     console.log(`[Contabo] Added custom page: ${title} (slug: ${slug})`)
     return result.rows[0]
   } catch (error: any) {
@@ -1556,44 +1567,44 @@ export async function updateCustomPageInContabo(
       featuredImageUrl,
       published
     })
-    
+
     const { queryContabo } = await import('./contabo-pool')
-    
+
     const updates: string[] = []
     const params: any[] = []
     let paramIndex = 1
-    
+
     updates.push(`title = $${paramIndex++}`)
     params.push(title)
-    
+
     const normalizedSlug = slug.toLowerCase().replace(/\s+/g, "-")
     updates.push(`slug = $${paramIndex++}`)
     params.push(normalizedSlug)
-    
+
     updates.push(`content = $${paramIndex++}`)
     params.push(content)
-    
+
     if (featuredImageUrl !== undefined) {
       updates.push(`featured_image_url = $${paramIndex++}`)
       params.push(featuredImageUrl || null)
     }
-    
+
     if (published !== undefined) {
       updates.push(`published = $${paramIndex++}`)
       params.push(published)
     }
-    
+
     updates.push(`updated_at = NOW()`)
-    
+
     params.push(id)
-    
+
     const sql = `
       UPDATE custom_pages
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex}
       RETURNING *
     `
-    
+
     console.log(`[Contabo] 📝 Executing SQL:`, {
       sql: sql.replace(/\s+/g, ' ').trim(),
       paramCount: params.length,
@@ -1603,20 +1614,20 @@ export async function updateCustomPageInContabo(
         value: typeof p === 'string' ? p.substring(0, 50) + (p.length > 50 ? '...' : '') : p
       }))
     })
-    
+
     const result = await queryContabo<any>(sql, params)
-    
+
     console.log(`[Contabo] 📊 Query result:`, {
       hasResult: !!result,
       hasRows: !!result?.rows,
       rowCount: result?.rows?.length
     })
-    
+
     if (!result || !result.rows || result.rows.length === 0) {
       console.error(`[Contabo] ❌ Custom page update returned no rows for id: ${id}`)
       throw new Error(`Custom page not found or update failed for id: ${id}`)
     }
-    
+
     const updatedPage = result.rows[0]
     console.log(`[Contabo] ✅ Updated custom page: ${id}`, {
       id: updatedPage.id,
@@ -1693,7 +1704,7 @@ export async function updateUserInContabo(
 
     values.push(userId) // For WHERE clause
     const sql = `UPDATE profiles SET ${updateFields.join(', ')} WHERE id = $${paramIndex}`
-    
+
     await queryContabo(sql, values)
     console.log(`[Contabo] Updated user ${userId} with fields:`, Object.keys(updates))
   } catch (error: any) {
@@ -1717,7 +1728,7 @@ export async function deleteUserFromContabo(userId: string): Promise<void> {
     await queryContabo('DELETE FROM post_reposts WHERE user_id = $1', [userId])
     await queryContabo('DELETE FROM bookmarks WHERE user_id = $1', [userId])
     await queryContabo('DELETE FROM user_follows WHERE follower_id = $1 OR following_id = $1', [userId])
-    
+
     // Delete the profile
     await queryContabo('DELETE FROM profiles WHERE id = $1', [userId])
     console.log(`[Contabo] Deleted user profile ${userId}`)

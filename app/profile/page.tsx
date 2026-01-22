@@ -3,7 +3,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail, Calendar, Shield, MapPin } from "lucide-react"
+import { Mail, Calendar, Shield, MapPin, Heart, Bookmark } from "lucide-react"
 import { getAuthSession } from "@/lib/auth/nextauth-helpers"
 import { getContaboPool } from "@/lib/database/contabo-pool"
 
@@ -24,7 +24,7 @@ export default async function ProfilePage() {
   // If profile doesn't exist, create a basic one
   if (!profile) {
     const defaultUsername = session.user.email?.split("@")[0] || `user_${session.user.id.substring(0, 8)}`
-    
+
     try {
       await pool.query(
         `INSERT INTO profiles (id, username, email, role, created_at)
@@ -134,6 +134,36 @@ export default async function ProfilePage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2 mt-6">
+        <Link href="/profile/watchlist">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+            <CardHeader className="flex flex-row items-center gap-4">
+              <div className="p-2 bg-primary/10 rounded-full">
+                <Bookmark className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle>My Watchlist</CardTitle>
+                <CardDescription>Movies and shows you want to watch</CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+        </Link>
+
+        <Link href="/profile/favorites">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
+            <CardHeader className="flex flex-row items-center gap-4">
+              <div className="p-2 bg-red-500/10 rounded-full">
+                <Heart className="h-6 w-6 text-red-500 fill-current" />
+              </div>
+              <div>
+                <CardTitle>My Favorites</CardTitle>
+                <CardDescription>Your favorite content</CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
 
       <Card className="mt-6">
