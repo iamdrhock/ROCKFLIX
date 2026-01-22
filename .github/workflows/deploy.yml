@@ -19,7 +19,10 @@ jobs:
             cd /home/runcloud/webapps/rockflix/current
             git fetch --all
             git reset --hard origin/main
+            git reset --hard origin/main
+            git log -1
             cp .env.production.rockflix .env.production
             npm install
+            rm -rf .next
             npm run build
-            pm2 restart rockflix
+            pm2 restart rockflix --update-env

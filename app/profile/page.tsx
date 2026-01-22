@@ -170,7 +170,7 @@ export default async function ProfilePage() {
 
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Activity</CardTitle>
+          <CardTitle>Activity (v2)</CardTitle>
           <CardDescription>Your recent activity on the site</CardDescription>
         </CardHeader>
         <CardContent>
