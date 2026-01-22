@@ -12,28 +12,30 @@ export const dynamic = 'force-dynamic'
 export default async function ProfilePage() {
   const session = await getAuthSession()
 
-  if (!session?.user?.id) {
+  if (!session?.user || !(session.user as any).id) {
     redirect("/auth/login")
   }
 
+  const user = session.user as { id: string; email?: string | null; name?: string | null; image?: string | null }
+
   // Fetch profile from Contabo
   const pool = getContaboPool()
-  let result = await pool.query("SELECT * FROM profiles WHERE id = $1 LIMIT 1", [session.user.id])
+  let result = await pool.query("SELECT * FROM profiles WHERE id = $1 LIMIT 1", [user.id])
   let profile = result.rows[0]
 
   // If profile doesn't exist, create a basic one
   if (!profile) {
-    const defaultUsername = session.user.email?.split("@")[0] || `user_${session.user.id.substring(0, 8)}`
+    const defaultUsername = user.email?.split("@")[0] || `user_${user.id.substring(0, 8)}`
 
     try {
       await pool.query(
         `INSERT INTO profiles (id, username, email, role, created_at)
          VALUES ($1, $2, $3, $4, NOW())
          ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email`,
-        [session.user.id, defaultUsername, session.user.email || null, 'user']
+        [user.id, defaultUsername, user.email || null, 'user']
       )
       // Fetch the newly created profile
-      result = await pool.query("SELECT * FROM profiles WHERE id = $1 LIMIT 1", [session.user.id])
+      result = await pool.query("SELECT * FROM profiles WHERE id = $1 LIMIT 1", [user.id])
       profile = result.rows[0]
     } catch (createError) {
       console.error("[Profile] Error creating profile:", createError)
@@ -97,7 +99,7 @@ export default async function ProfilePage() {
               <Mail className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm font-medium">Email</p>
-                <p className="text-sm text-muted-foreground">{session.user.email || profile.email || "No email"}</p>
+                <p className="text-sm text-muted-foreground">{user.email || profile.email || "No email"}</p>
               </div>
             </div>
 
@@ -137,7 +139,7 @@ export default async function ProfilePage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 mt-6">
-        <Link href="/profile/watchlist">
+        <Link href="/profile/my-watchlist">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center gap-4">
               <div className="p-2 bg-primary/10 rounded-full">
@@ -151,7 +153,7 @@ export default async function ProfilePage() {
           </Card>
         </Link>
 
-        <Link href="/profile/favorites">
+        <Link href="/profile/my-favorites">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
             <CardHeader className="flex flex-row items-center gap-4">
               <div className="p-2 bg-red-500/10 rounded-full">

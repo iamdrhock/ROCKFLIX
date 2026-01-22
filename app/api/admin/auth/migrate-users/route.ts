@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { adminRoute } from "@/lib/security/admin-middleware"
+import { adminRoute, type AdminRequestContext } from "@/lib/security/admin-middleware"
 import { getContaboPool } from "@/lib/database/contabo-pool"
 import { createServiceRoleClient } from "@/lib/supabase/server"
 
@@ -22,7 +22,7 @@ interface MigrationStats {
  * 3. Optionally migrates OAuth accounts (if accessible)
  * 4. Returns migration statistics
  */
-export const POST = adminRoute(async (request: NextRequest) => {
+export const POST = adminRoute(async (_ctx: AdminRequestContext) => {
   const pool = getContaboPool()
   const stats: MigrationStats = {
     totalProfiles: 0,

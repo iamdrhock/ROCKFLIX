@@ -2,10 +2,10 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { fetchPostDetailFromContabo } from "@/lib/database/contabo-queries"
 
-export async function GET(request: NextRequest, { params }: { params: { postId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ postId: string }> }) {
   try {
-    console.log("[v0] API: GET request for post ID:", params.postId)
-    const postId = params.postId
+    const { postId } = await params
+    console.log("[v0] API: GET request for post ID:", postId)
     const supabase = await createClient()
 
     const {

@@ -52,6 +52,7 @@
         "date-fns": "latest",
         "embla-carousel-react": "8.5.1",
         "fs": "latest",
+        "google-auth-library": "^10.5.0",
         "input-otp": "1.4.1",
         "ioredis": "^5.8.2",
         "isomorphic-dompurify": "latest",
@@ -79,6 +80,7 @@
     },
     "devDependencies": {
         "@tailwindcss/postcss": "^4.1.9",
+        "@types/bcryptjs": "^2.4.6",
         "@types/node": "^22",
         "@types/nodemailer": "^6.4.17",
         "@types/pg": "^8.10.9",

@@ -53,23 +53,23 @@ function extractTrailerUrl(videos: any): string | null {
   if (!videos || !videos.results || !Array.isArray(videos.results)) {
     return null
   }
-  
+
   // Find the first official trailer on YouTube
   const trailer = videos.results.find(
-    (video: any) => 
-      video.type === "Trailer" && 
-      video.site === "YouTube" && 
+    (video: any) =>
+      video.type === "Trailer" &&
+      video.site === "YouTube" &&
       video.official === true
   ) || videos.results.find(
-    (video: any) => 
-      video.type === "Trailer" && 
+    (video: any) =>
+      video.type === "Trailer" &&
       video.site === "YouTube"
   )
-  
+
   if (trailer && trailer.key) {
     return `https://www.youtube.com/embed/${trailer.key}`
   }
-  
+
   return null
 }
 
@@ -106,7 +106,7 @@ export const POST = adminRoute(async ({ request, supabase }) => {
 
     const useContabo = process.env.USE_CONTABO_DB === 'true'
     console.log("[v0] Using Contabo:", useContabo, "USE_CONTABO_DB env:", process.env.USE_CONTABO_DB)
-    
+
     // Fix sequences at the start of import to prevent duplicate key errors
     if (useContabo) {
       await fixRelationshipSequences()
@@ -151,20 +151,20 @@ export const POST = adminRoute(async ({ request, supabase }) => {
 
       const totalSeasons = tvData.number_of_seasons || 0
       const imdbId = tvData.external_ids?.imdb_id || `tmdb:${tmdbId}`
-      
+
       // Extract trailer URL
       const trailerUrl = extractTrailerUrl(tvData.videos)
       console.log("[v0] Trailer URL extracted:", trailerUrl || "No trailer found")
 
       // Extract countries from multiple possible sources
       let countries: string[] = []
-      
+
       // Try production_countries first
       if (tvData.production_countries && Array.isArray(tvData.production_countries) && tvData.production_countries.length > 0) {
         countries = tvData.production_countries.map((c: any) => c.name || c.iso_3166_1).filter(Boolean)
         console.log("[v0] Countries from production_countries:", countries)
       }
-      
+
       // Fallback to origin_country if production_countries is empty (common for TV shows)
       if (countries.length === 0 && tvData.origin_country && Array.isArray(tvData.origin_country) && tvData.origin_country.length > 0) {
         // origin_country is usually ISO codes, map them to country names
@@ -190,7 +190,7 @@ export const POST = adminRoute(async ({ request, supabase }) => {
         })
         console.log("[v0] Countries from origin_country:", countries)
       }
-      
+
       // If still no countries, log a warning
       if (countries.length === 0) {
         console.warn(`[v0] WARNING: No countries found for series "${tvData.name}" (TMDB ID: ${tmdbId}). production_countries:`, tvData.production_countries, "origin_country:", tvData.origin_country)
@@ -318,7 +318,7 @@ export const POST = adminRoute(async ({ request, supabase }) => {
             country: countries.length > 0 ? countries.join(", ") : null,
           })
           insertedSeries = { id: result.id }
-          
+
           // If reimporting, delete old relationships to ensure clean data
           if (existingContent) {
             console.log("[v0] Reimport detected - cleaning up old relationships for series ID:", result.id)
@@ -499,7 +499,7 @@ export const POST = adminRoute(async ({ request, supabase }) => {
 
               if (actorId) {
                 // If actor exists but has no photo, update it with the new photo
-                if (!existingActor.photo_url && actorPhotoUrl) {
+                if (existingActor && !existingActor.photo_url && actorPhotoUrl) {
                   console.log("[v0] Updating photo for existing actor:", castMember.name)
                   await supabase.from("actors").update({ photo_url: actorPhotoUrl }).eq("id", actorId)
                 }
@@ -674,7 +674,7 @@ export const POST = adminRoute(async ({ request, supabase }) => {
                 }
               }
             }
-            
+
             console.log("[v0] Season", seasonNum, "complete:", episodeCount, "episodes processed")
           } catch (error) {
             console.error("[v0] Error processing season", seasonNum, ":", error)
@@ -710,20 +710,20 @@ export const POST = adminRoute(async ({ request, supabase }) => {
       console.log("[v0] TMDB movie data received:", movieData.title)
 
       const imdbId = movieData.imdb_id || `tmdb:${tmdbId}`
-      
+
       // Extract trailer URL
       const trailerUrl = extractTrailerUrl(movieData.videos)
       console.log("[v0] Trailer URL extracted:", trailerUrl || "No trailer found")
 
       // Extract countries from multiple possible sources
       let countries: string[] = []
-      
+
       // Try production_countries first (for movies)
       if (movieData.production_countries && Array.isArray(movieData.production_countries) && movieData.production_countries.length > 0) {
         countries = movieData.production_countries.map((c: any) => c.name || c.iso_3166_1).filter(Boolean)
         console.log("[v0] Countries from production_countries:", countries)
       }
-      
+
       // Fallback to origin_country if production_countries is empty (for TV shows or movies without production_countries)
       if (countries.length === 0 && movieData.origin_country && Array.isArray(movieData.origin_country) && movieData.origin_country.length > 0) {
         // origin_country is usually ISO codes, we'll need to map them to names
@@ -751,7 +751,7 @@ export const POST = adminRoute(async ({ request, supabase }) => {
         })
         console.log("[v0] Countries from origin_country:", countries)
       }
-      
+
       // If still no countries, log a warning
       if (countries.length === 0) {
         console.warn(`[v0] WARNING: No countries found for movie "${movieData.title}" (TMDB ID: ${tmdbId}). production_countries:`, movieData.production_countries, "origin_country:", movieData.origin_country)
@@ -879,7 +879,7 @@ export const POST = adminRoute(async ({ request, supabase }) => {
             country: countries.length > 0 ? countries.join(", ") : null,
           })
           insertedMovie = { id: result.id }
-          
+
           // If reimporting, delete old relationships to ensure clean data
           if (existingContent) {
             console.log("[v0] Reimport detected - cleaning up old relationships for movie ID:", result.id)
@@ -1065,7 +1065,7 @@ export const POST = adminRoute(async ({ request, supabase }) => {
 
               if (actorId) {
                 // If actor exists but has no photo, update it with the new photo
-                if (!existingActor.photo_url && actorPhotoUrl) {
+                if (existingActor && !existingActor.photo_url && actorPhotoUrl) {
                   console.log("[v0] Updating photo for existing actor:", castMember.name)
                   await supabase.from("actors").update({ photo_url: actorPhotoUrl }).eq("id", actorId)
                 }

@@ -13,7 +13,7 @@ const SESSION_MAX_AGE = SESSION_DURATION_HOURS * 60 * 60
 // Helper function to create error response - uses native Response API to avoid bundling issues
 function createErrorResponse(message: string, status: number = 500) {
   return new Response(
-    JSON.stringify({ 
+    JSON.stringify({
       error: "Internal server error",
       message: message || "An unexpected error occurred",
     }),
@@ -58,7 +58,7 @@ export interface AdminRequestContext {
 
 type AdminRouteHandler = (
   context: AdminRequestContext,
-  routeContext?: { params?: Record<string, string | string[]> | Promise<Record<string, string | string[]>> },
+  routeContext?: { params?: Record<string, string | string[]> },
 ) => Promise<Response>
 
 export function adminRoute(handler: AdminRouteHandler) {
@@ -66,7 +66,7 @@ export function adminRoute(handler: AdminRouteHandler) {
     try {
       // Allow bypass for internal server-to-server calls (bulk import)
       const isInternalCall = request.headers.get("x-internal-bulk-import") === "true"
-      
+
       if (isInternalCall) {
         // For internal calls, check if we have a valid admin session
         // If not, still require authentication, but be more lenient with CSRF
@@ -93,7 +93,7 @@ export function adminRoute(handler: AdminRouteHandler) {
           return csrfCheck.response!
         }
       }
-      
+
       const context = await ensureAdmin(request)
       if ("response" in context) {
         if (process.env.NODE_ENV === "development" || isInternalCall) {
@@ -104,7 +104,7 @@ export function adminRoute(handler: AdminRouteHandler) {
 
       // Resolve params if it's a Promise (Next.js 16)
       const resolvedParams = routeContext.params instanceof Promise ? await routeContext.params : routeContext.params
-      
+
       return await handler({
         request,
         supabase: context.supabase,
@@ -116,7 +116,7 @@ export function adminRoute(handler: AdminRouteHandler) {
       console.error(`[admin/middleware] Error stack:`, error?.stack)
       // Use native Response API directly - NextResponse may not be available in catch block due to bundling
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "Internal server error",
           message: error?.message || "An unexpected error occurred"
         }),
@@ -131,10 +131,10 @@ export function adminRoute(handler: AdminRouteHandler) {
 
 export async function ensureAdmin(request: NextRequest): Promise<
   | {
-      supabase: SupabaseClient<any>
-      adminUser: AdminUser
-      sessionId: number
-    }
+    supabase: SupabaseClient<any>
+    adminUser: AdminUser
+    sessionId: number
+  }
   | { response: Response }
 > {
   const cookie = request.cookies.get(SESSION_COOKIE_NAME)?.value
@@ -153,7 +153,7 @@ export async function ensureAdmin(request: NextRequest): Promise<
   if (process.env.USE_CONTABO_DB === 'true') {
     try {
       const { queryContabo } = await import('@/lib/database/contabo-pool')
-      
+
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise<{ response: Response }>((resolve) => {
         setTimeout(() => {
@@ -180,26 +180,26 @@ export async function ensureAdmin(request: NextRequest): Promise<
 
         if (sessionResult.rows.length === 0 || !sessionResult.rows[0].username) {
           // Delete invalid session
-          await queryContabo('DELETE FROM admin_sessions WHERE id = $1', [sessionId]).catch(() => {})
+          await queryContabo('DELETE FROM admin_sessions WHERE id = $1', [sessionId]).catch(() => { })
           return { response: unauthorizedResponse() }
         }
 
         const session = sessionResult.rows[0]
 
         if (!session.session_token) {
-          await queryContabo('DELETE FROM admin_sessions WHERE id = $1', [sessionId]).catch(() => {})
+          await queryContabo('DELETE FROM admin_sessions WHERE id = $1', [sessionId]).catch(() => { })
           return { response: unauthorizedResponse() }
         }
 
         const expiresAt = session.expires_at ? new Date(session.expires_at).getTime() : null
         if (expiresAt && expiresAt < Date.now()) {
-          await queryContabo('DELETE FROM admin_sessions WHERE id = $1', [sessionId]).catch(() => {})
+          await queryContabo('DELETE FROM admin_sessions WHERE id = $1', [sessionId]).catch(() => { })
           return { response: unauthorizedResponse() }
         }
 
         const tokenMatches = await bcrypt.compare(token, session.session_token)
         if (!tokenMatches) {
-          await queryContabo('DELETE FROM admin_sessions WHERE id = $1', [sessionId]).catch(() => {})
+          await queryContabo('DELETE FROM admin_sessions WHERE id = $1', [sessionId]).catch(() => { })
           return { response: unauthorizedResponse() }
         }
 
@@ -275,7 +275,7 @@ export async function createAdminSession(
   if (process.env.USE_CONTABO_DB === 'true') {
     try {
       const { queryContabo } = await import('@/lib/database/contabo-pool')
-      
+
       const result = await queryContabo<{ id: number }>(
         `INSERT INTO admin_sessions (
           user_id, 
@@ -363,7 +363,7 @@ export function setAdminSessionCookie(response: Response, value: string, expires
   } catch (e) {
     // Fall through to manual header
   }
-  
+
   // Fallback: Set cookie manually via Set-Cookie header
   const cookieValue = `${SESSION_COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=${SESSION_MAX_AGE}; Expires=${expiresAt.toUTCString()}`
   response.headers.append("Set-Cookie", cookieValue)
@@ -379,7 +379,7 @@ export function clearAdminSessionCookie(response: Response) {
   } catch (e) {
     // Fall through to manual header
   }
-  
+
   // Fallback: Clear cookie manually via Set-Cookie header
   const cookieValue = `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Secure; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT`
   response.headers.append("Set-Cookie", cookieValue)
