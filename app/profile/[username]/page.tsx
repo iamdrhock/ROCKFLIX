@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { createClient as createServerClient } from "@/lib/supabase/server"
 import Image from "next/image"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -25,6 +25,16 @@ interface ProfilePageProps {
 
 export default async function PublicProfilePage({ params }: ProfilePageProps) {
   const { username } = await params
+
+  // Handle reserved routes that might be caught by this dynamic route
+  // This fixes the "Profile Not Found" error when accessing /profile/watchlist
+  if (['watchlist', 'my-watchlist'].includes(username.toLowerCase())) {
+    redirect('/profile/my-watchlist')
+  }
+  if (['favorites', 'my-favorites'].includes(username.toLowerCase())) {
+    redirect('/profile/my-favorites')
+  }
+
   const supabase = await createServerClient()
   const useContabo = process.env.USE_CONTABO_DB === 'true'
 
