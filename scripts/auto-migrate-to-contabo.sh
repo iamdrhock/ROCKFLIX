@@ -11,15 +11,19 @@ echo "=========================================="
 echo ""
 
 # Configuration
-EXPORT_FILE="database-export.json"
+EXPORT_FILE="digitalocean-export.json"
 CONTABO_DB_URL="${CONTABO_DATABASE_URL:-postgresql://postgres:x70wIAAISfu4pqmo@localhost:5432/postgres}"
 
 # Step 1: Export from Supabase (via admin panel API)
-echo "Step 1: Exporting from Supabase..."
+echo "Step 1: Checking for export file..."
 if [ ! -f "$EXPORT_FILE" ]; then
-    echo "❌ Export file not found: $EXPORT_FILE"
-    echo "   Please export from admin panel first: https://rockflix.tv/arike/migrate-database"
-    exit 1
+    if [ -f "database-export.json" ]; then
+        EXPORT_FILE="database-export.json"
+    else
+        echo "❌ Export file not found: $EXPORT_FILE or database-export.json"
+        echo "   Please run: node scripts/export-from-digitalocean.js"
+        exit 1
+    fi
 fi
 echo "✅ Export file found: $EXPORT_FILE"
 echo ""

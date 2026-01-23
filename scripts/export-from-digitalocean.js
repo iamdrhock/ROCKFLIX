@@ -11,8 +11,10 @@ const fs = require('fs')
 const path = require('path')
 
 // DigitalOcean connection
+// DigitalOcean connection
+const DO_PASSWORD = process.env.DO_PASSWORD || 'masked_password'
 const DO_DB_URL = process.env.DATABASE_URL ||
-  'postgresql://doadmin:masked_password@rockflix-db-do-user-28778450-0.j.db.ondigitalocean.com:25060/defaultdb?sslmode=require'
+  `postgresql://doadmin:${DO_PASSWORD}@rockflix-db-do-user-28778450-0.j.db.ondigitalocean.com:25060/defaultdb?sslmode=require`
 
 const OUTPUT_FILE = path.join(__dirname, 'digitalocean-export.json')
 
