@@ -269,6 +269,15 @@ export default async function PublicProfilePage({ params }: ProfilePageProps) {
 export async function generateMetadata({ params }: ProfilePageProps) {
   const { username } = await params
 
+  // Handle reserved routes in metadata
+  if (['watchlist', 'my-watchlist', 'favorites', 'my-favorites'].includes(username.toLowerCase())) {
+    return {
+      title: "My Library",
+      description: "Manage your watchlist and favorites"
+    }
+  }
+
+
   try {
     const useContabo = process.env.USE_CONTABO_DB === 'true'
     const supabase = await createServerClient()
