@@ -139,7 +139,7 @@ export async function Footer() {
             )}
 
             <p className="text-xs text-muted-foreground text-center">
-              © {new Date().getFullYear()} {settings.site_title}. All rights reserved.
+              © {new Date().getFullYear()} {settings.site_title}. All rights reserved. (v1.0.0)
             </p>
           </div>
         </div>
