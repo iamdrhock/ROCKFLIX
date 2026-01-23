@@ -109,13 +109,13 @@ export function UserMenu({ showTalkFlixSettings = false }: { showTalkFlixSetting
             <DropdownMenuItem asChild>
               <Link href="/profile/my-watchlist" className="cursor-pointer">
                 <Bookmark className="mr-2 h-4 w-4" />
-                <span>Watchlist</span>
+                <span>My Watchlist</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href="/profile/my-favorites" className="cursor-pointer">
                 <Heart className="mr-2 h-4 w-4" />
-                <span>Favorites</span>
+                <span>My Favorites</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
