@@ -81,25 +81,48 @@ async function SearchResults({ searchParams }: SearchPageProps) {
     )
   }
 
-  // Create Supabase client
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+  // Determine source
+  const useContabo = process.env.USE_CONTABO_DB === 'true'
 
-  // Build query
-  let supabaseQuery = supabase.from("movies").select("*", { count: "exact" }).ilike("title", `%${query}%`)
+  let results = []
+  let count = 0
 
-  // Filter by type if specified
-  if (type === "movie" || type === "series") {
-    supabaseQuery = supabaseQuery.eq("type", type)
-  }
+  if (useContabo) {
+    // Use Contabo direct query (matches search dropdown logic)
+    const { searchMoviesFromContabo } = await import('@/lib/database/contabo-queries')
+    const searchResult = await searchMoviesFromContabo(
+      query,
+      type === "movie" || type === "series" ? type : undefined,
+      page,
+      perPage
+    )
+    results = searchResult.movies
+    count = searchResult.total
+  } else {
+    // Legacy Supabase query
+    // Create Supabase client
+    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-  // Pagination
-  const from = (page - 1) * perPage
-  const to = from + perPage - 1
+    // Build query
+    let supabaseQuery = supabase.from("movies").select("*", { count: "exact" }).ilike("title", `%${query}%`)
 
-  const { data: results, error, count } = await supabaseQuery.order("views", { ascending: false }).range(from, to)
+    // Filter by type if specified
+    if (type === "movie" || type === "series") {
+      supabaseQuery = supabaseQuery.eq("type", type)
+    }
 
-  if (error) {
-    console.error("[v0] Search error:", error)
+    // Pagination
+    const from = (page - 1) * perPage
+    const to = from + perPage - 1
+
+    const { data, error, count: sbCount } = await supabaseQuery.order("views", { ascending: false }).range(from, to)
+
+    if (error) {
+      console.error("[v0] Search error:", error)
+    }
+
+    results = data || []
+    count = sbCount || 0
   }
 
   const totalPages = count ? Math.ceil(count / perPage) : 0

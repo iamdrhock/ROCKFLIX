@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     // Sanitize search query to prevent injection attacks
     const query = sanitizeSearchQuery(rawQuery)
-    
+
     if (!query || query.length === 0) {
       return NextResponse.json({ results: [] })
     }
@@ -32,14 +32,15 @@ export async function GET(request: NextRequest) {
     if (process.env.USE_CONTABO_DB === 'true') {
       try {
         const { searchMoviesFromContabo } = await import('@/lib/database/contabo-queries')
-        const results = await searchMoviesFromContabo(
+        const { movies, total } = await searchMoviesFromContabo(
           query,
           type === "movie" || type === "series" ? type : undefined,
+          1, // API is currently just for dropdown, so page 1
           Number.parseInt(limit)
         )
-        
+
         // Ensure results are valid JSON with proper encoding
-        const safeResults = (results || []).map((r: any) => ({
+        const safeResults = (movies || []).map((r: any) => ({
           id: r.id,
           title: r.title || '',
           type: r.type || 'movie',
@@ -47,13 +48,13 @@ export async function GET(request: NextRequest) {
           release_date: r.release_date || null,
           rating: r.rating || 0
         }))
-        
+
         trackSearch({
           query: query,
           resultsCount: safeResults.length,
-        }).catch(() => {}) // Silently fail tracking
+        }).catch(() => { }) // Silently fail tracking
 
-        return NextResponse.json({ results: safeResults }, {
+        return NextResponse.json({ results: safeResults, total: total }, {
           headers: {
             'Content-Type': 'application/json; charset=utf-8'
           }

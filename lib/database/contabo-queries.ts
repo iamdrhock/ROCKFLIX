@@ -174,18 +174,18 @@ export async function fetchMoviesFromContabo(
 export async function fetchMovieFromContabo(id: number): Promise<Movie | null> {
   try {
     console.log(`[Contabo] fetchMovieFromContabo called for ID: ${id}`)
-    
+
     // First, check if movie exists at all (without status column check)
     const checkSql = `SELECT id, title, type FROM movies WHERE id = $1`
     const checkResult = await queryContabo<{ id: number; title: string; type: string }>(checkSql, [id])
-    
+
     if (checkResult.rows.length === 0) {
       console.error(`[Contabo] Movie ID ${id} does not exist in database`)
       return null
     }
-    
+
     console.log(`[Contabo] Movie ID ${id} exists: "${checkResult.rows[0].title}", type: ${checkResult.rows[0].type}`)
-    
+
     // Build main query
     const sql = `
       SELECT 
@@ -254,17 +254,17 @@ export async function fetchMovieFromContabo(id: number): Promise<Movie | null> {
     }
 
     console.log(`[Contabo] fetchMovieFromContabo query result: ${result.rows.length} rows found for ID: ${id}`)
-    
+
     if (result.rows.length === 0) {
       console.error(`[Contabo] Movie query returned 0 rows for ID: ${id} (but existence check passed)`)
       // This shouldn't happen if the check passed, but return null anyway
       return null
     }
-    
+
     console.log(`[Contabo] Movie found: ${result.rows[0].title} (ID: ${id})`)
 
     const row = result.rows[0]
-    
+
     // Parse actors from JSON if needed
     let actors = row.actors
     if (typeof actors === 'string') {
@@ -279,7 +279,7 @@ export async function fetchMovieFromContabo(id: number): Promise<Movie | null> {
       actors = []
     }
     actors = actors.filter((a: any) => a && a.id)
-    
+
     // Parse tags from JSON if needed
     let tags = row.tags
     if (typeof tags === 'string') {
@@ -294,7 +294,7 @@ export async function fetchMovieFromContabo(id: number): Promise<Movie | null> {
       tags = []
     }
     tags = tags.filter((t: any) => t && t.id)
-    
+
     console.log(`[Contabo] Movie ${id} - Genres: "${row.genres}", Actors: ${actors.length}, Tags: ${tags.length}`)
     console.log(`[Contabo] Movie ${id} - Raw genres value:`, typeof row.genres, row.genres)
     console.log(`[Contabo] Movie ${id} - Genres length:`, row.genres ? row.genres.length : 0)
@@ -303,7 +303,7 @@ export async function fetchMovieFromContabo(id: number): Promise<Movie | null> {
     if (Array.isArray(row.actors)) {
       console.log(`[Contabo] Movie ${id} - First 3 actors:`, row.actors.slice(0, 3).map((a: any) => ({ id: a?.id, name: a?.name })))
     }
-    
+
     // Verify actors in database directly
     const verifyActors = await queryContabo<{ actor_id: number; actor_name: string }>(
       'SELECT ma.actor_id, a.name as actor_name FROM movie_actors ma JOIN actors a ON ma.actor_id = a.id WHERE ma.movie_id = $1 LIMIT 5',
@@ -313,7 +313,7 @@ export async function fetchMovieFromContabo(id: number): Promise<Movie | null> {
     if (verifyActors.rows.length > 0) {
       console.log(`[Contabo] Movie ${id} - Actors in DB:`, verifyActors.rows.map(r => ({ id: r.actor_id, name: r.actor_name })))
     }
-    
+
     // Verify genres in database directly
     const verifyGenres = await queryContabo<{ genre_id: number; genre_name: string }>(
       'SELECT mg.genre_id, g.name as genre_name FROM movie_genres mg JOIN genres g ON mg.genre_id = g.id WHERE mg.movie_id = $1',
@@ -326,14 +326,14 @@ export async function fetchMovieFromContabo(id: number): Promise<Movie | null> {
     } else {
       console.warn(`[Contabo] Movie ${id} - WARNING: No genres found in movie_genres table!`)
     }
-    
+
     const movie: Movie = {
       ...row,
       actors,
       genres: row.genres || '',
       tags,
     }
-    
+
     console.log(`[Contabo] Movie ${id} - Final movie object:`, {
       id: movie.id,
       title: movie.title,
@@ -368,7 +368,7 @@ export async function fetchMovieFromContabo(id: number): Promise<Movie | null> {
       `
       const seasonsResult = await queryContabo<any>(seasonsSql, [id])
       console.log(`[Contabo] Fetched ${seasonsResult.rows.length} seasons for series ID: ${id}`)
-      
+
       // Transform episodes from JSON string to array if needed
       movie.seasons = seasonsResult.rows.map((season: any) => {
         let episodes = season.episodes
@@ -385,7 +385,7 @@ export async function fetchMovieFromContabo(id: number): Promise<Movie | null> {
           episodes: Array.isArray(episodes) ? episodes : []
         }
       })
-      
+
       console.log(`[Contabo] Processed seasons with episodes:`, movie.seasons.map((s: any) => ({
         season_number: s.season_number,
         episodes_count: s.episodes?.length || 0
@@ -453,15 +453,32 @@ export async function fetchTrendingMoviesFromContabo(
 export async function searchMoviesFromContabo(
   query: string,
   type?: "movie" | "series",
-  limit = 10
-): Promise<Movie[]> {
+  page: number = 1,
+  limit: number = 20
+): Promise<{ movies: Movie[]; total: number }> {
   try {
     // Search with ranking: exact matches first, then starts with, then contains
     // This ensures short titles like "UP", "YOU", "LOW" show up when searched
     const searchPattern = `%${query}%`
     const exactMatch = query.trim()
     const startsWith = `${query}%`
-    
+    const offset = (page - 1) * limit
+
+    // Base SQL conditions
+    let whereClause = `WHERE title ILIKE $3`
+    const params: any[] = [exactMatch, startsWith, searchPattern]
+
+    if (type) {
+      whereClause += ` AND type = $${params.length + 1}`
+      params.push(type)
+    }
+
+    // Count query
+    const countSql = `SELECT COUNT(*) as total FROM movies ${whereClause}`
+    // We need to use a separate params array for count query because it doesn't need limit/offset
+    // but relies on the same base params we've accumulated so far
+
+    // Main query
     let sql = `
       SELECT 
         id, title, type, poster_url, release_date, rating,
@@ -472,24 +489,22 @@ export async function searchMoviesFromContabo(
           ELSE 4
         END as match_rank
       FROM movies 
-      WHERE title ILIKE $3
+      ${whereClause}
+      ORDER BY match_rank ASC, LENGTH(title) ASC, created_at DESC NULLS LAST 
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `
-    const params: any[] = [exactMatch, startsWith, searchPattern]
 
-    if (type) {
-      sql += ` AND type = $${params.length + 1}`
-      params.push(type)
-    }
+    // Execute count query first
+    const countResult = await queryContabo<{ total: string }>(countSql, params)
+    const total = parseInt(countResult.rows[0]?.total || '0', 10)
 
-    // Order by match rank (exact first), then by title length (shorter first for same rank), then by created_at
-    sql += ` ORDER BY match_rank ASC, LENGTH(title) ASC, created_at DESC NULLS LAST LIMIT $${params.length + 1}`
-    params.push(limit)
-
+    // Execute main query with limit/offset
+    params.push(limit, offset)
     const result = await queryContabo<any>(sql, params)
-    
+
     // Return only the expected fields with safe defaults
     // Ensure proper UTF-8 encoding for titles
-    return (result.rows || []).map((row: any) => {
+    const movies = (result.rows || []).map((row: any) => {
       // Handle encoding issues - ensure title is properly decoded
       let title = row.title || ''
       if (typeof title === 'string') {
@@ -507,7 +522,7 @@ export async function searchMoviesFromContabo(
           // If decoding fails, keep original
         }
       }
-      
+
       return {
         id: Number(row.id) || 0,
         title: title,
@@ -517,9 +532,11 @@ export async function searchMoviesFromContabo(
         rating: Number(row.rating) || 0
       }
     })
+
+    return { movies, total }
   } catch (error: any) {
     console.error(`[Contabo] Search error:`, error?.message || error)
-    return []
+    return { movies: [], total: 0 }
   }
 }
 
@@ -605,7 +622,7 @@ export async function fetchSimilarMoviesFromContabo(movieId: number, limit = 5):
       )
       LIMIT $5
     `
-    
+
     const similarResult = await queryContabo<{ id: number }>(
       similarSql,
       [currentMovie.type, movieId, genreIds, tagIds, limit * 2]
@@ -1043,7 +1060,7 @@ export async function fetchMoviesByCountryFromContabo(
     const countParams = [searchPattern]
 
     console.log(`[Contabo] Searching for country: "${country}" (pattern: "${searchPattern}")`)
-    
+
     // First try exact match, then fall back to pattern match
     const sqlWithExact = `
       SELECT 
@@ -1073,7 +1090,7 @@ export async function fetchMoviesByCountryFromContabo(
       ORDER BY m.created_at DESC
       LIMIT $3 OFFSET $4
     `
-    
+
     const countSqlWithExact = `
       SELECT COUNT(DISTINCT m.id) as total
       FROM movies m
@@ -1082,7 +1099,7 @@ export async function fetchMoviesByCountryFromContabo(
       WHERE 
         (LOWER(c.name) = LOWER($1) OR c.name ILIKE $2 OR m.country ILIKE $2)
     `
-    
+
     const exactParams = [exactPattern, searchPattern, limit, offset]
     const exactCountParams = [exactPattern, searchPattern]
 
@@ -1272,20 +1289,20 @@ export async function fetchMoviesByActorFromContabo(
     }))
 
     console.log(`[Contabo] Found ${movies.length} movies for actor ID: ${actorId} (page ${page} of ${totalPages}, total: ${total})`)
-        return { movies, total, totalPages }
-      } catch (error: any) {
-        console.error(`[Contabo] Error fetching movies by actor:`, error)
-        return { movies: [], total: 0, totalPages: 0 }
-      }
-    }
+    return { movies, total, totalPages }
+  } catch (error: any) {
+    console.error(`[Contabo] Error fetching movies by actor:`, error)
+    return { movies: [], total: 0, totalPages: 0 }
+  }
+}
 
-    /**
-     * Fetch trending genres from Contabo
-     */
-    export async function fetchTrendingGenresFromContabo(limit = 6): Promise<any[]> {
-      try {
-        // Get all genres with movie counts
-        const sql = `
+/**
+ * Fetch trending genres from Contabo
+ */
+export async function fetchTrendingGenresFromContabo(limit = 6): Promise<any[]> {
+  try {
+    // Get all genres with movie counts
+    const sql = `
           SELECT 
             g.id,
             g.name,
@@ -1307,31 +1324,31 @@ export async function fetchMoviesByActorFromContabo(
           LIMIT $1
         `
 
-        const result = await queryContabo<any>(sql, [limit])
+    const result = await queryContabo<any>(sql, [limit])
 
-        return result.rows.map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          movie_count: parseInt(row.movie_count || '0', 10),
-          sample_movie_poster: row.sample_movie_poster || null,
-        }))
-      } catch (error: any) {
-        console.error(`[Contabo] Error fetching trending genres:`, error)
-        return []
-      }
-    }
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      movie_count: parseInt(row.movie_count || '0', 10),
+      sample_movie_poster: row.sample_movie_poster || null,
+    }))
+  } catch (error: any) {
+    console.error(`[Contabo] Error fetching trending genres:`, error)
+    return []
+  }
+}
 
-    /**
-     * Fetch featured actors from Contabo
-     * Gets random actors from all movies/series in the database
-     */
-    export async function fetchTrendingActorsFromContabo(limit = 6): Promise<any[]> {
-      try {
-        console.log(`[Contabo] Fetching random featured actors from all movies`)
+/**
+ * Fetch featured actors from Contabo
+ * Gets random actors from all movies/series in the database
+ */
+export async function fetchTrendingActorsFromContabo(limit = 6): Promise<any[]> {
+  try {
+    console.log(`[Contabo] Fetching random featured actors from all movies`)
 
-        // Get random actors from all movies in the database
-        // Use a subquery to avoid DISTINCT + RANDOM() issues
-        const actorsSql = `
+    // Get random actors from all movies in the database
+    // Use a subquery to avoid DISTINCT + RANDOM() issues
+    const actorsSql = `
           SELECT 
             a.id,
             a.name,
@@ -1348,123 +1365,123 @@ export async function fetchMoviesByActorFromContabo(
           LIMIT $1
         `
 
-        const result = await queryContabo<any>(actorsSql, [limit])
+    const result = await queryContabo<any>(actorsSql, [limit])
 
-        console.log(`[Contabo] Found ${result.rows.length} random featured actors`)
+    console.log(`[Contabo] Found ${result.rows.length} random featured actors`)
 
-        return result.rows.map((row: any) => ({
-          id: row.id,
-          name: row.name,
-          photo_url: row.photo_url || null,
-        }))
-      } catch (error: any) {
-        console.error(`[Contabo] Error fetching featured actors:`, error)
-        return []
-      }
-    }
+    return result.rows.map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      photo_url: row.photo_url || null,
+    }))
+  } catch (error: any) {
+    console.error(`[Contabo] Error fetching featured actors:`, error)
+    return []
+  }
+}
 
-    /**
-     * Fetch actor details from Contabo
-     */
-    export async function fetchActorFromContabo(actorId: number): Promise<any | null> {
-      try {
-        const sql = `
+/**
+ * Fetch actor details from Contabo
+ */
+export async function fetchActorFromContabo(actorId: number): Promise<any | null> {
+  try {
+    const sql = `
           SELECT id, name, photo_url
           FROM actors
           WHERE id = $1
         `
 
-        const result = await queryContabo<{ id: number; name: string; photo_url?: string }>(sql, [actorId])
+    const result = await queryContabo<{ id: number; name: string; photo_url?: string }>(sql, [actorId])
 
-        if (result.rows.length === 0) {
-          return null
-        }
-
-        return result.rows[0]
-      } catch (error: any) {
-        console.error(`[Contabo] Error fetching actor:`, error)
-        return null
-      }
+    if (result.rows.length === 0) {
+      return null
     }
 
-    /**
-     * Fetch all movies for sitemap from Contabo
-     */
-    export async function fetchAllMoviesForSitemapFromContabo(): Promise<Array<{ id: number; type: string; updated_at?: string }>> {
-      try {
-        const sql = `
+    return result.rows[0]
+  } catch (error: any) {
+    console.error(`[Contabo] Error fetching actor:`, error)
+    return null
+  }
+}
+
+/**
+ * Fetch all movies for sitemap from Contabo
+ */
+export async function fetchAllMoviesForSitemapFromContabo(): Promise<Array<{ id: number; type: string; updated_at?: string }>> {
+  try {
+    const sql = `
           SELECT id, type, updated_at
           FROM movies
           ORDER BY id ASC
         `
 
-        const result = await queryContabo<{ id: number; type: string; updated_at?: string }>(sql, [])
+    const result = await queryContabo<{ id: number; type: string; updated_at?: string }>(sql, [])
 
-        return result.rows
-      } catch (error: any) {
-        console.error(`[Contabo] Error fetching movies for sitemap:`, error)
-        return []
-      }
-    }
+    return result.rows
+  } catch (error: any) {
+    console.error(`[Contabo] Error fetching movies for sitemap:`, error)
+    return []
+  }
+}
 
-    /**
-     * Fetch all actors for sitemap from Contabo
-     */
-    export async function fetchAllActorsForSitemapFromContabo(): Promise<Array<{ id: number; updated_at?: string }>> {
-      try {
-        const sql = `
+/**
+ * Fetch all actors for sitemap from Contabo
+ */
+export async function fetchAllActorsForSitemapFromContabo(): Promise<Array<{ id: number; updated_at?: string }>> {
+  try {
+    const sql = `
           SELECT id, updated_at
           FROM actors
           ORDER BY id ASC
         `
 
-        const result = await queryContabo<{ id: number; updated_at?: string }>(sql, [])
+    const result = await queryContabo<{ id: number; updated_at?: string }>(sql, [])
 
-        return result.rows
-      } catch (error: any) {
-        console.error(`[Contabo] Error fetching actors for sitemap:`, error)
-        return []
-      }
-    }
+    return result.rows
+  } catch (error: any) {
+    console.error(`[Contabo] Error fetching actors for sitemap:`, error)
+    return []
+  }
+}
 
 /**
  * Fetch ads from Contabo
  */
 export async function fetchAdsFromContabo(position?: string): Promise<any> {
-      try {
-        if (position) {
-          const sql = `
+  try {
+    if (position) {
+      const sql = `
             SELECT *
             FROM advertisements
             WHERE position = $1 AND is_active = true
             LIMIT 1
           `
-          const result = await queryContabo<any>(sql, [position])
-          
-          if (result.rows.length === 0) {
-            return { content: "", active: false }
-          }
+      const result = await queryContabo<any>(sql, [position])
 
-          const ad = result.rows[0]
-          return {
-            content: ad.content || "",
-            active: ad.is_active || false,
-          }
-        }
+      if (result.rows.length === 0) {
+        return { content: "", active: false }
+      }
 
-        // Return all ads
-        const sql = `
+      const ad = result.rows[0]
+      return {
+        content: ad.content || "",
+        active: ad.is_active || false,
+      }
+    }
+
+    // Return all ads
+    const sql = `
           SELECT *
           FROM advertisements
           ORDER BY position
         `
-        const result = await queryContabo<any>(sql, [])
-        return result.rows
-      } catch (error: any) {
-        console.error(`[Contabo] Error fetching ads:`, error)
-        return position ? { content: "", active: false } : []
-      }
-    }
+    const result = await queryContabo<any>(sql, [])
+    return result.rows
+  } catch (error: any) {
+    console.error(`[Contabo] Error fetching ads:`, error)
+    return position ? { content: "", active: false } : []
+  }
+}
 
 /**
  * Fetch all genres from Contabo
@@ -1492,14 +1509,14 @@ export async function fetchCountriesFromContabo(type?: "movie" | "series"): Prom
       JOIN movies m ON mc.movie_id = m.id
     `
     const params: any[] = []
-    
+
     if (type) {
       sql += ` WHERE m.type = $1`
       params.push(type)
     }
-    
+
     sql += ` ORDER BY c.name ASC`
-    
+
     const result = await queryContabo<{ name: string }>(sql, params)
     return result.rows.map((r) => r.name)
   } catch (error: any) {
@@ -1521,14 +1538,14 @@ export async function fetchYearsFromContabo(type?: "movie" | "series"): Promise<
         AND m.release_date ~ '^[0-9]{4}'
     `
     const params: any[] = []
-    
+
     if (type) {
       sql += ` AND m.type = $1`
       params.push(type)
     }
-    
+
     sql += ` ORDER BY year DESC`
-    
+
     const result = await queryContabo<{ year: number }>(sql, params)
     return result.rows.map((r) => r.year).filter((y) => !isNaN(y) && y > 1900 && y <= new Date().getFullYear() + 2)
   } catch (error: any) {
@@ -1567,9 +1584,9 @@ export async function fetchLatestMoviesFromContabo(type: "movie" | "series" = "m
       ORDER BY m.release_date DESC NULLS LAST, m.created_at DESC
       LIMIT $2
     `
-    
+
     const result = await queryContabo<Movie & { genres: string; actors: any }>(sql, [type, limit])
-    
+
     return result.rows.map((row: any) => ({
       ...row,
       actors: Array.isArray(row.actors) ? row.actors.filter((a: any) => a.id) : [],
@@ -1669,7 +1686,7 @@ export async function fetchDownloadLinksFromContabo(
 
     const result = await queryContabo<any>(sql, params)
     console.log(`[Contabo] Found ${result.rows.length} download links for movie ${movieId}${episodeId ? `, episode ${episodeId}` : ''}`)
-    
+
     // Log the episode_ids found for debugging
     if (result.rows.length > 0) {
       const episodeIds = result.rows.map((r: any) => r.episode_id).filter((id: any) => id !== null)
@@ -1677,7 +1694,7 @@ export async function fetchDownloadLinksFromContabo(
         console.log(`[Contabo] Download links episode_ids:`, episodeIds)
       }
     }
-    
+
     return result.rows
   } catch (error: any) {
     console.error(`[Contabo] Error fetching download links:`, error)
@@ -1691,9 +1708,9 @@ export async function fetchDownloadLinksFromContabo(
 export async function fetchSiteSettingsFromContabo(): Promise<any | null> {
   try {
     const { queryContabo } = await import('./contabo-pool')
-    
+
     console.log(`[Contabo] Fetching site settings from Contabo...`)
-    
+
     const sql = `
       SELECT 
         id,
@@ -1741,10 +1758,10 @@ export async function fetchSiteSettingsFromContabo(): Promise<any | null> {
     `
 
     const result = await queryContabo<any>(sql, [])
-    
+
     if (!result.rows || result.rows.length === 0) {
       console.log(`[Contabo] No site settings found, attempting to create defaults...`)
-      
+
       // Try to create default settings
       try {
         const insertResult = await queryContabo<any>(`
@@ -1805,10 +1822,10 @@ export async function fetchSiteSettingsFromContabo(): Promise<any | null> {
             { platform: "youtube", url: "#" }
           ])
         ])
-        
+
         console.log(`[Contabo] Default settings created successfully`)
         const row = insertResult.rows[0]
-        
+
         // Parse JSONB columns
         const parseJsonb = (value: any, defaultValue: any = []): any => {
           if (value === null || value === undefined) return defaultValue
@@ -1824,7 +1841,7 @@ export async function fetchSiteSettingsFromContabo(): Promise<any | null> {
           }
           return defaultValue
         }
-        
+
         const settings: any = {
           ...row,
           header_menu: parseJsonb(row.header_menu, []),
@@ -1832,14 +1849,14 @@ export async function fetchSiteSettingsFromContabo(): Promise<any | null> {
           quick_links: parseJsonb(row.quick_links, []),
           social_links: parseJsonb(row.social_links, []),
         }
-        
+
         return settings
       } catch (insertError: any) {
         console.error(`[Contabo] Failed to create default settings:`, insertError)
         return null
       }
     }
-    
+
     const row = result.rows[0]
     console.log(`[Contabo] Raw settings row:`, {
       id: row.id,
@@ -1851,7 +1868,7 @@ export async function fetchSiteSettingsFromContabo(): Promise<any | null> {
       header_menu_type: typeof row.header_menu,
       footer_links_type: typeof row.footer_links,
     })
-    
+
     // Helper function to safely parse JSONB columns
     const parseJsonb = (value: any, defaultValue: any = []): any => {
       if (value === null || value === undefined) return defaultValue
@@ -1867,7 +1884,7 @@ export async function fetchSiteSettingsFromContabo(): Promise<any | null> {
       }
       return defaultValue
     }
-    
+
     // Parse JSONB columns - PostgreSQL returns them as strings or objects
     // Ensure they're properly formatted as arrays/objects
     const settings: any = {
@@ -1877,7 +1894,7 @@ export async function fetchSiteSettingsFromContabo(): Promise<any | null> {
       quick_links: parseJsonb(row.quick_links, []),
       social_links: parseJsonb(row.social_links, []),
     }
-    
+
     console.log(`[Contabo] Parsed site settings:`, {
       site_title: settings.site_title,
       footer_text: settings.footer_text,
@@ -1885,7 +1902,7 @@ export async function fetchSiteSettingsFromContabo(): Promise<any | null> {
       quick_links_count: Array.isArray(settings.quick_links) ? settings.quick_links.length : 0,
       header_menu_count: Array.isArray(settings.header_menu) ? settings.header_menu.length : 0,
     })
-    
+
     return settings
   } catch (error: any) {
     console.error(`[Contabo] Error fetching site settings:`, error)
@@ -2069,7 +2086,7 @@ export async function fetchAnalyticsOverviewFromContabo(): Promise<any> {
         .map(v => v.session_id)
         .filter(id => id && id.trim() !== '')
     ).size
-    
+
     console.log(`[Contabo Analytics] Unique visitors calculated: ${uniqueSessionsCount} from ${uniqueVisitorsResult.rows.length} distinct sessions`)
 
     // Total searches (last 30 days)
@@ -2273,7 +2290,7 @@ export async function fetchPostsFromContabo(options: {
         return { posts: [], hasMore: false }
       }
       const hashtagId = hashtagResult.rows[0].id
-      
+
       // Get post IDs with this hashtag
       const postHashtagsResult = await queryContabo<{ post_id: number }>(
         'SELECT post_id FROM post_hashtags WHERE hashtag_id = $1',
@@ -2309,7 +2326,7 @@ export async function fetchPostsFromContabo(options: {
       // Get posts from users you've engaged with, trending posts, and recent posts
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
-      
+
       // Get users you've liked/commented on
       const engagedUsersResult = await queryContabo<{ user_id: string }>(
         `SELECT DISTINCT p.user_id 
@@ -2324,7 +2341,7 @@ export async function fetchPostsFromContabo(options: {
         [userId]
       )
       const engagedUserIds = engagedUsersResult.rows.map(r => r.user_id)
-      
+
       // Get trending post IDs (last 24 hours, 2+ likes)
       const trendingResult = await queryContabo<{ id: number }>(
         `SELECT id FROM posts 
@@ -2334,7 +2351,7 @@ export async function fetchPostsFromContabo(options: {
         [yesterday.toISOString()]
       )
       const trendingPostIds = trendingResult.rows.map(r => r.id)
-      
+
       // Get recent post IDs (last 6 hours)
       const sixHoursAgo = new Date()
       sixHoursAgo.setHours(sixHoursAgo.getHours() - 6)
@@ -2346,10 +2363,10 @@ export async function fetchPostsFromContabo(options: {
         [sixHoursAgo.toISOString()]
       )
       const recentPostIds = recentResult.rows.map(r => r.id)
-      
+
       // Combine all relevant post IDs
       const allPostIds = [...new Set([...trendingPostIds, ...recentPostIds])]
-      
+
       if (engagedUserIds.length > 0 || allPostIds.length > 0) {
         const conditions: string[] = []
         if (engagedUserIds.length > 0) {
@@ -2390,7 +2407,7 @@ export async function fetchPostsFromContabo(options: {
     queryParams.push(offset)
 
     console.log(`[Contabo] Executing query: ${postsQuery}`, queryParams)
-    
+
     let postsResult
     try {
       postsResult = await queryContabo<any>(postsQuery, queryParams)
@@ -2399,7 +2416,7 @@ export async function fetchPostsFromContabo(options: {
       console.error(`[Contabo] Query execution error:`, error)
       throw error
     }
-    
+
     const posts = postsResult.rows?.slice(0, limit) || []
     const hasMore = (postsResult.rows?.length || 0) > limit
 
@@ -2414,7 +2431,7 @@ export async function fetchPostsFromContabo(options: {
         const countResult = await queryContabo<{ count: string }>('SELECT COUNT(*) as count FROM posts')
         const totalCount = parseInt(countResult.rows[0]?.count || '0', 10)
         console.log(`[Contabo] 🔍 Total posts in database: ${totalCount}`)
-        
+
         if (totalCount > 0 && feed === 'trending') {
           // Try fetching without any WHERE clause to see if it works
           const testQuery = `SELECT id, user_id, content, likes_count, comments_count, created_at FROM posts ORDER BY created_at DESC LIMIT 5`
@@ -2441,7 +2458,7 @@ export async function fetchPostsFromContabo(options: {
 
     // Fetch profiles for posts
     const userIds = [...new Set(posts.map(p => p.user_id))]
-    
+
     let profileMap = new Map()
     if (userIds.length > 0) {
       try {
@@ -2482,12 +2499,12 @@ export async function fetchPostsFromContabo(options: {
            WHERE ph.post_id = ANY($1::bigint[])`,
           [postIds]
         )
-        ;(hashtagsResult.rows || []).forEach(row => {
-          if (!hashtagsMap.has(row.post_id)) {
-            hashtagsMap.set(row.post_id, [])
-          }
-          hashtagsMap.get(row.post_id)!.push(row.name)
-        })
+          ; (hashtagsResult.rows || []).forEach(row => {
+            if (!hashtagsMap.has(row.post_id)) {
+              hashtagsMap.set(row.post_id, [])
+            }
+            hashtagsMap.get(row.post_id)!.push(row.name)
+          })
       } catch (hashtagsError: any) {
         console.error(`[Contabo] Error fetching hashtags:`, hashtagsError)
         // Continue with empty hashtags map
@@ -2505,17 +2522,17 @@ export async function fetchPostsFromContabo(options: {
            WHERE pm.post_id = ANY($1::bigint[])`,
           [postIds]
         )
-        ;(moviesResult.rows || []).forEach(row => {
-          if (!moviesMap.has(row.post_id)) {
-            moviesMap.set(row.post_id, [])
-          }
-          moviesMap.get(row.post_id)!.push({
-            id: row.movie_id,
-            title: row.title,
-            poster_url: row.poster_url,
-            type: row.type
+          ; (moviesResult.rows || []).forEach(row => {
+            if (!moviesMap.has(row.post_id)) {
+              moviesMap.set(row.post_id, [])
+            }
+            moviesMap.get(row.post_id)!.push({
+              id: row.movie_id,
+              title: row.title,
+              poster_url: row.poster_url,
+              type: row.type
+            })
           })
-        })
       } catch (moviesError: any) {
         console.error(`[Contabo] Error fetching movies:`, moviesError)
         // Continue with empty movies map
@@ -2572,14 +2589,14 @@ export async function fetchPostsFromContabo(options: {
       }
 
       repostsQuery += ` ORDER BY pr.created_at DESC LIMIT ${Math.floor(limit / 2)}`
-      
+
       const repostsResult = await queryContabo<any>(repostsQuery, repostParams)
-      
+
       if (repostsResult.rows.length > 0) {
         const reposterIds = [...new Set(repostsResult.rows.map(r => r.user_id))]
         const originalUserIds = [...new Set(repostsResult.rows.map(r => r.original_user_id))]
         const allRepostUserIds = [...new Set([...reposterIds, ...originalUserIds])]
-        
+
         const repostProfilesResult = await queryContabo<{ id: string; username: string; profile_picture_url: string | null }>(
           `SELECT id, username, profile_picture_url FROM profiles WHERE id = ANY($1::uuid[])`,
           [allRepostUserIds]
@@ -2645,10 +2662,10 @@ export async function fetchPostsFromContabo(options: {
       returningCount: Math.min(allItems.length, limit),
       hasMore,
     })
-    
+
     const finalPosts = allItems.slice(0, limit)
     console.log(`[Contabo] ✅ Successfully fetched ${finalPosts.length} posts`)
-    
+
     return {
       posts: finalPosts,
       hasMore
