@@ -443,7 +443,10 @@ export default function ImportMoviesPage() {
         console.log("[v0] Received imported movie IDs:", data.tmdb_ids)
         console.log("[v0] Number of imported movies:", data.tmdb_ids?.length || 0)
 
-        const importedSet = new Set(data.tmdb_ids || [])
+        const tmdbIds = Array.isArray(data.tmdb_ids)
+          ? data.tmdb_ids.map((id: unknown) => Number(id)).filter((id: number) => Number.isFinite(id))
+          : []
+        const importedSet: Set<number> = new Set(tmdbIds)
         console.log("[v0] Created Set with", importedSet.size, "imported movies")
         setImportedMovies(importedSet)
       } else {
@@ -467,7 +470,10 @@ export default function ImportMoviesPage() {
 
       if (response.ok) {
         const data = await response.json()
-        setImportedMovies(new Set(data.imported_ids || []))
+        const importedIds = Array.isArray(data.imported_ids)
+          ? data.imported_ids.map((id: unknown) => Number(id)).filter((id: number) => Number.isFinite(id))
+          : []
+        setImportedMovies(new Set<number>(importedIds))
       }
     } catch (error) {
       console.error("[v0] Error checking imported movies:", error)
