@@ -27,7 +27,11 @@ export const POST = adminRoute(async ({ request, supabase, adminUser }) => {
       console.log(`[v0] Bulk import limited to ${maxBulkImport} items, skipping ${skipped}`)
     }
 
-    const results = {
+    const results: {
+      success: Array<{ tmdb_id: number; title: string }>
+      failed: Array<{ tmdb_id: number; error: string; details?: unknown }>
+      retried: Array<{ tmdb_id: number; attempt: number }>
+    } = {
       success: [],
       failed: [],
       retried: [],
@@ -53,7 +57,7 @@ export const POST = adminRoute(async ({ request, supabase, adminUser }) => {
       contentType: string = type || "movie", // Pass contentType explicitly
       attempt: number = 1,
       maxRetries: number = 2,
-    ): Promise<{ success: boolean; title?: string; error?: string }> {
+    ): Promise<{ success: boolean; title?: string; error?: string; details?: unknown }> {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 120000) // 2 minute timeout for series with many episodes
       
