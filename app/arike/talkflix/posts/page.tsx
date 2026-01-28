@@ -8,12 +8,13 @@ import Link from "next/link"
 import { revalidatePath } from "next/cache"
 import { ClientHeader } from "@/components/client-header"
 
-async function deletePost(formData: FormData) {
+const deletePost: (formData: FormData) => Promise<void> = async (formData) => {
   "use server"
 
   const postId = formData.get("postId") as string
   if (!postId || !postId.trim()) {
-    return { error: "Please enter a post ID" }
+    console.error("Please enter a post ID")
+    return
   }
 
   const supabase = await createClient()
@@ -29,11 +30,10 @@ async function deletePost(formData: FormData) {
 
   if (error) {
     console.error("Error deleting post:", error)
-    return { error: error.message }
+    return
   }
 
   revalidatePath("/arike/talkflix/posts")
-  return { success: true }
 }
 
 export default async function DeleteTalkFlixPostPage() {
