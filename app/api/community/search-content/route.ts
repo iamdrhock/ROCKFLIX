@@ -24,7 +24,8 @@ export async function GET(request: Request) {
       const results = await searchMoviesFromContabo(query, undefined, 10)
       
       // Map to expected format
-      const formattedResults = results.map(movie => ({
+      const items = Array.isArray(results) ? results : results.movies || []
+      const formattedResults = items.map(movie => ({
         id: movie.id,
         title: movie.title,
         poster_url: movie.poster_url,
