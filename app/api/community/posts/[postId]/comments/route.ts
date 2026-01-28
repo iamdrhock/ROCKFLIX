@@ -60,36 +60,48 @@ export async function GET(request: Request, { params }: { params: Promise<{ post
     }
 
     // Build threaded structure
-    const commentsWithProfiles = comments?.map((comment) => ({
+    const commentsWithProfiles = (comments?.map((comment) => ({
       ...comment,
       profiles: profileMap.get(comment.user_id),
       userReaction: userReactions[comment.id] || null,
       engagementScore: (comment.likes_count || 0) - (comment.dislikes_count || 0),
-    }))
+    })) || []) as Array<{
+      id: number
+      parent_comment_id: number | null
+      engagementScore: number
+      [key: string]: unknown
+    }>
 
     // Organize into threads (top-level comments and replies)
-    const topLevelComments = commentsWithProfiles?.filter((c) => !c.parent_comment_id) || []
-    const repliesMap = new Map()
+    type CommentWithProfile = (typeof commentsWithProfiles)[number]
+    type ThreadedComment = CommentWithProfile & { replies: CommentWithProfile[] }
+    const topLevelComments = commentsWithProfiles.filter((c) => !c.parent_comment_id)
+    const repliesMap = new Map<number, CommentWithProfile[]>()
 
     commentsWithProfiles?.forEach((comment) => {
       if (comment.parent_comment_id) {
+        const repliesList = repliesMap.get(comment.parent_comment_id) ?? []
         if (!repliesMap.has(comment.parent_comment_id)) {
-          repliesMap.set(comment.parent_comment_id, [])
+          repliesMap.set(comment.parent_comment_id, repliesList)
         }
-        repliesMap.get(comment.parent_comment_id).push(comment)
+        repliesList.push(comment)
       }
     })
 
-    const threaded = topLevelComments.map((comment) => {
+    const threaded: ThreadedComment[] = topLevelComments.map((comment) => {
       const replies = repliesMap.get(comment.id) || []
-      const sortedReplies = replies.sort((a, b) => b.engagementScore - a.engagementScore)
+      const sortedReplies = replies.sort(
+        (a: CommentWithProfile, b: CommentWithProfile) => b.engagementScore - a.engagementScore
+      )
       return {
         ...comment,
         replies: sortedReplies,
       }
     })
 
-    const sortedThreaded = threaded.sort((a, b) => b.engagementScore - a.engagementScore)
+    const sortedThreaded = threaded.sort(
+      (a: ThreadedComment, b: ThreadedComment) => b.engagementScore - a.engagementScore
+    )
 
     return NextResponse.json({ comments: sortedThreaded })
   } catch (error) {
