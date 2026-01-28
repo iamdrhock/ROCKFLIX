@@ -13,15 +13,16 @@ export async function POST(request: NextRequest) {
     // Verify user is authenticated
     const session = await getAuthSession()
 
-    if (!session?.user?.id || !session.user.email) {
+    const userId = (session?.user as { id?: string | null; email?: string | null } | null)?.id || null
+    const userEmail = (session?.user as { email?: string | null } | null)?.email || null
+    if (!userId || !userEmail) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
       )
     }
 
-    const userId = session.user.id
-    const userEmail = session.user.email
+    
 
     // Parse request body
     const body = await request.json()
@@ -113,7 +114,8 @@ export async function GET(request: NextRequest) {
   try {
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const getUserId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!getUserId) {
       return NextResponse.json(
         { exists: false },
         { status: 200 }
@@ -123,7 +125,7 @@ export async function GET(request: NextRequest) {
     const pool = getContaboPool()
     const profileCheck = await pool.query(
       `SELECT username FROM profiles WHERE id = $1 LIMIT 1`,
-      [session.user.id]
+      [getUserId]
     )
 
     return NextResponse.json({
