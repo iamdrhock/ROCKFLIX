@@ -4,7 +4,8 @@ import { getAuthSession } from "@/lib/auth/nextauth-helpers"
 export async function GET() {
   const session = await getAuthSession()
 
-  if (!session?.user?.id) {
+  const userId = (session?.user as { id?: string | null } | null)?.id
+  if (!userId) {
     return NextResponse.json({ authenticated: false }, { status: 401 })
   }
 
