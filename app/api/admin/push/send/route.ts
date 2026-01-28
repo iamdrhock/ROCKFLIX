@@ -18,7 +18,7 @@ export const POST = adminRoute(async ({ request, supabase: adminSupabase }) => {
 
     // Get admin user ID for logging
     const session = await import('@/lib/auth/nextauth-helpers').then(m => m.getAuthSession())
-    const adminUserId = session?.user?.id || null
+    const adminUserId = (session?.user as { id?: string | null } | null)?.id ?? null
 
     // Send push notification
     const result = await sendBroadcastPush(
