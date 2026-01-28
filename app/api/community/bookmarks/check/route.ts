@@ -7,11 +7,11 @@ export async function GET(request: Request) {
     // Use NextAuth session
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ isBookmarked: false })
     }
 
-    const userId = session.user.id
     const { searchParams } = new URL(request.url)
     const postId = searchParams.get("postId")
 

@@ -28,9 +28,10 @@ export default function CompleteProfilePage() {
       return
     }
 
-    if (status === "authenticated" && session?.user) {
+    const userId = (session?.user as { id?: string | null } | null)?.id
+    if (status === "authenticated" && userId) {
       // Check if profile already exists
-      checkProfile(session.user.id)
+      checkProfile(userId)
     }
   }, [session, status, router])
 
@@ -65,7 +66,9 @@ export default function CompleteProfilePage() {
       return
     }
 
-    if (!session?.user?.id || !session.user.email) {
+    const userId = (session?.user as { id?: string | null; email?: string | null } | null)?.id
+    const userEmail = (session?.user as { email?: string | null } | null)?.email
+    if (!userId || !userEmail) {
       setError("Session expired. Please sign in again.")
       router.push("/auth/login")
       return
@@ -78,7 +81,7 @@ export default function CompleteProfilePage() {
       if (profilePicture) {
         const formData = new FormData()
         formData.append("file", profilePicture)
-        formData.append("userId", session.user.id)
+        formData.append("userId", userId)
 
         const result = await uploadProfilePicture(formData)
 

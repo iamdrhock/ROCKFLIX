@@ -9,15 +9,16 @@ export const runtime = 'nodejs'
 export async function GET(request: Request) {
   try {
     const session = await getAuthSession()
-    if (!session?.user?.id) {
+    const sessionUserId = (session?.user as { id?: string | null; email?: string | null } | null)?.id || null
+    if (!sessionUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId") || session.user.id
+    const userId = searchParams.get("userId") || sessionUserId
 
     // Only allow users to fetch their own profile
-    if (userId !== session.user.id) {
+    if (userId !== sessionUserId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -47,15 +48,17 @@ export async function PUT(request: Request) {
     })
     
     const session = await getAuthSession()
+    const sessionUserId = (session?.user as { id?: string | null; email?: string | null } | null)?.id || null
+    const sessionUserEmail = (session?.user as { email?: string | null } | null)?.email || null
     console.log("[API] PUT /api/user/profile - Session check:", {
       hasSession: !!session,
       hasUser: !!session?.user,
-      hasUserId: !!session?.user?.id,
-      userId: session?.user?.id,
-      userEmail: session?.user?.email
+      hasUserId: !!sessionUserId,
+      userId: sessionUserId,
+      userEmail: sessionUserEmail
     })
     
-    if (!session?.user?.id) {
+    if (!sessionUserId) {
       console.log("[API] PUT /api/user/profile - Unauthorized: No session")
       return NextResponse.json({ 
         error: "Unauthorized", 
@@ -82,7 +85,7 @@ export async function PUT(request: Request) {
     // Check if username is already taken by another user
     const usernameCheck = await pool.query(
       "SELECT id FROM profiles WHERE username = $1 AND id != $2 LIMIT 1",
-      [username, session.user.id]
+      [username, sessionUserId]
     )
 
     if (usernameCheck.rows.length > 0) {
@@ -97,7 +100,7 @@ export async function PUT(request: Request) {
            about = $3, 
            profile_picture_url = $4 
        WHERE id = $5`,
-      [username, country || null, about || null, profile_picture_url || null, session.user.id]
+      [username, country || null, about || null, profile_picture_url || null, sessionUserId]
     )
 
     console.log("[API] PUT /api/user/profile - Success")

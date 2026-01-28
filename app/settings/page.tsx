@@ -12,39 +12,42 @@ export default async function SettingsPage() {
   try {
     const session = await getAuthSession()
     
+    const sessionUserId = (session?.user as { id?: string | null; email?: string | null; name?: string | null } | null)?.id || null
+    const sessionUserEmail = (session?.user as { email?: string | null } | null)?.email || null
+    const sessionUserName = (session?.user as { name?: string | null } | null)?.name || null
     console.log("[Settings Page] Session check:", {
       hasSession: !!session,
       hasUser: !!session?.user,
-      hasUserId: !!session?.user?.id,
-      userId: session?.user?.id,
-      userEmail: session?.user?.email,
-      userName: session?.user?.name
+      hasUserId: !!sessionUserId,
+      userId: sessionUserId,
+      userEmail: sessionUserEmail,
+      userName: sessionUserName
     })
 
     // If no session, redirect to login with callback URL
-    if (!session?.user?.id) {
+    if (!sessionUserId) {
       console.log("[Settings Page] No session found, redirecting to login")
       redirect("/auth/login?callbackUrl=/settings")
     }
 
     // Fetch profile from Contabo
     const pool = getContaboPool()
-    let result = await pool.query("SELECT * FROM profiles WHERE id = $1 LIMIT 1", [session.user.id])
+    let result = await pool.query("SELECT * FROM profiles WHERE id = $1 LIMIT 1", [sessionUserId])
     let profile = result.rows[0]
 
     // If profile doesn't exist, create a basic one
     if (!profile) {
-      const defaultUsername = session.user.email?.split("@")[0] || `user_${session.user.id.substring(0, 8)}`
+      const defaultUsername = sessionUserEmail?.split("@")[0] || `user_${sessionUserId.substring(0, 8)}`
       
       try {
         await pool.query(
           `INSERT INTO profiles (id, username, email, role, created_at)
            VALUES ($1, $2, $3, $4, NOW())
            ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email`,
-          [session.user.id, defaultUsername, session.user.email || null, 'user']
+          [sessionUserId, defaultUsername, sessionUserEmail || null, 'user']
         )
         // Fetch the newly created profile
-        result = await pool.query("SELECT * FROM profiles WHERE id = $1 LIMIT 1", [session.user.id])
+        result = await pool.query("SELECT * FROM profiles WHERE id = $1 LIMIT 1", [sessionUserId])
         profile = result.rows[0]
       } catch (createError) {
         console.error("[Settings] Error creating profile:", createError)
@@ -68,7 +71,7 @@ export default async function SettingsPage() {
             <CardDescription>Update your username, bio, and profile picture</CardDescription>
           </CardHeader>
           <CardContent>
-            <UpdateProfileForm profile={profile} userId={session.user.id} />
+            <UpdateProfileForm profile={profile} userId={sessionUserId} />
           </CardContent>
         </Card>
 

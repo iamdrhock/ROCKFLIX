@@ -7,7 +7,8 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
              last_used_at = NOW(),
              updated_at = NOW()`,
           [
-            session.user.id,
+            userId,
             device_token,
             platform,
             device_info ? JSON.stringify(device_info) : null,
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
           .from('push_notification_tokens')
           .upsert(
             {
-              user_id: session.user.id,
+              user_id: userId,
               device_token,
               platform,
               device_info: device_info || null,
@@ -83,7 +84,8 @@ export async function DELETE(request: Request) {
   try {
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -102,7 +104,7 @@ export async function DELETE(request: Request) {
           `UPDATE push_notification_tokens
            SET is_active = false, updated_at = NOW()
            WHERE device_token = $1 AND user_id = $2`,
-          [device_token, session.user.id]
+          [device_token, userId]
         )
       } else {
         const supabase = createServiceRoleClient()
@@ -110,7 +112,7 @@ export async function DELETE(request: Request) {
           .from('push_notification_tokens')
           .update({ is_active: false })
           .eq('device_token', device_token)
-          .eq('user_id', session.user.id)
+          .eq('user_id', userId)
 
         if (error) throw error
       }

@@ -7,12 +7,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ movi
     const { movieId } = await params
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ isFavorite: false })
     }
 
     // Use Contabo
-    const isFavorite = await checkFavoriteFromContabo(session.user.id, Number.parseInt(movieId))
+    const isFavorite = await checkFavoriteFromContabo(userId, Number.parseInt(movieId))
     return NextResponse.json({ isFavorite })
   } catch (error) {
     console.error("Error checking favorite status:", error)
@@ -25,12 +26,13 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ m
     const { movieId } = await params
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     // Use Contabo
-    await removeFavoriteFromContabo(session.user.id, Number.parseInt(movieId))
+    await removeFavoriteFromContabo(userId, Number.parseInt(movieId))
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error removing from favorites:", error)

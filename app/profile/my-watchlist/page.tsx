@@ -10,11 +10,12 @@ export const dynamic = 'force-dynamic'
 export default async function WatchlistPage() {
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
         redirect("/auth/login")
     }
 
-    const watchlist = await getWatchlistFromContabo(session.user.id)
+    const watchlist = await getWatchlistFromContabo(userId)
 
     return (
         <div className="container py-8">

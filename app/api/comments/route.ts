@@ -13,7 +13,9 @@ export async function POST(request: NextRequest) {
     // Check if user is authenticated
     const session = await getAuthSession()
 
-    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    const userData = session?.user as { id?: string | null; email?: string | null } | null
+    const userId = userData?.id || null
+    const userEmail = userData?.email || null
     if (!userId) {
       return NextResponse.json({ error: "You must be logged in to comment" }, { status: 401 })
     }
@@ -78,14 +80,14 @@ export async function POST(request: NextRequest) {
       // If profile doesn't exist, create a basic one
       if (!profile) {
         const pool = getContaboPool()
-        const defaultUsername = session.user.email?.split("@")[0] || `user_${userId.substring(0, 8)}`
+        const defaultUsername = userEmail?.split("@")[0] || `user_${userId.substring(0, 8)}`
         
         try {
           await pool.query(
             `INSERT INTO profiles (id, username, email, role, created_at)
              VALUES ($1, $2, $3, $4, NOW())
              ON CONFLICT (id) DO NOTHING`,
-            [userId, defaultUsername, session.user.email || null, 'user']
+            [userId, defaultUsername, userEmail || null, 'user']
           )
           // Fetch the newly created profile
           profile = await getProfileFromContabo(userId)
@@ -95,7 +97,7 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      const userName = profile?.username || session.user.email?.split("@")[0] || "User"
+      const userName = profile?.username || userEmail?.split("@")[0] || "User"
 
       const data = await addCommentToContabo(
         Number.parseInt(movie_id),

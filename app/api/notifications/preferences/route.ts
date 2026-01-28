@@ -8,12 +8,13 @@ export async function GET() {
   try {
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     // Use Contabo
-    const preferences = await fetchNotificationPreferencesFromContabo(session.user.id)
+    const preferences = await fetchNotificationPreferencesFromContabo(userId)
     if (!preferences) {
       // Create default preferences if they don't exist
       const pool = getContaboPool()
@@ -22,10 +23,10 @@ export async function GET() {
           `INSERT INTO notification_preferences (user_id, email_new_episodes, email_comment_replies, email_weekly_digest, email_new_favorites, email_marketing, digest_frequency, created_at, updated_at)
            VALUES ($1, true, true, true, false, false, 'weekly', NOW(), NOW())
            ON CONFLICT (user_id) DO NOTHING`,
-          [session.user.id]
+          [userId]
         )
         // Fetch again after creation
-        const newPreferences = await fetchNotificationPreferencesFromContabo(session.user.id)
+        const newPreferences = await fetchNotificationPreferencesFromContabo(userId)
         if (newPreferences) {
           return NextResponse.json(newPreferences)
         }
@@ -45,7 +46,8 @@ export async function PUT(request: Request) {
   try {
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -60,7 +62,7 @@ export async function PUT(request: Request) {
     } = body
 
     // Use Contabo
-    const data = await updateNotificationPreferencesInContabo(session.user.id, {
+    const data = await updateNotificationPreferencesInContabo(userId, {
       email_new_episodes,
       email_comment_replies,
       email_weekly_digest,

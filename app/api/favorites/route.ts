@@ -13,10 +13,11 @@ export async function GET(request: Request) {
       // If no userId provided, use logged-in user
       const session = await getAuthSession()
 
-      if (!session?.user?.id) {
+      const userId = (session?.user as { id?: string | null } | null)?.id || null
+      if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
       }
-      targetUserId = session.user.id
+      targetUserId = userId
     }
 
     // Use Contabo
@@ -32,14 +33,15 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { movieId } = await request.json()
 
     // Use Contabo
-    await addFavoriteToContabo(session.user.id, Number.parseInt(movieId))
+    await addFavoriteToContabo(userId, Number.parseInt(movieId))
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Error adding to favorites:", error)

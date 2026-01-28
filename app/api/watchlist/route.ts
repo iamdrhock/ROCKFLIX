@@ -6,12 +6,13 @@ export async function GET() {
   try {
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: "You must be logged in to view your watchlist" }, { status: 401 })
     }
 
     // Use Contabo
-    const watchlist = await getWatchlistFromContabo(session.user.id)
+    const watchlist = await getWatchlistFromContabo(userId)
     return NextResponse.json(watchlist)
   } catch (error) {
     console.error("[v0] Error fetching watchlist:", error)
@@ -23,7 +24,8 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: "You must be logged in to add to watchlist" }, { status: 401 })
     }
 
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
 
     // Use Contabo
     try {
-      const data = await addToWatchlistContabo(session.user.id, Number.parseInt(movie_id))
+      const data = await addToWatchlistContabo(userId, Number.parseInt(movie_id))
       return NextResponse.json(data, { status: 201 })
     } catch (error: any) {
       // Check if it's a duplicate entry error

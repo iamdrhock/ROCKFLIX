@@ -8,11 +8,10 @@ export async function GET() {
     // Use NextAuth session
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-
-    const userId = session.user.id
 
     // Use Contabo (always enabled now)
     const bookmarks = await fetchBookmarksFromContabo(userId)
@@ -28,11 +27,10 @@ export async function POST(request: Request) {
     // Use NextAuth session
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-
-    const userId = session.user.id
     const { postId } = await request.json()
 
     if (!postId) {
@@ -60,11 +58,10 @@ export async function DELETE(request: Request) {
     // Use NextAuth session
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
-
-    const userId = session.user.id
     const { searchParams } = new URL(request.url)
     const postId = searchParams.get("postId")
 

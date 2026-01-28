@@ -45,9 +45,10 @@ export async function logout() {
  */
 export function useAuth() {
   const { data: session, status } = useSession()
+  const userId = (session?.user as { id?: string | null } | null)?.id || null
   return {
     user: session?.user,
-    userId: session?.user?.id || null,
+    userId,
     isAuthenticated: !!session?.user,
     isLoading: status === "loading",
     session,

@@ -37,7 +37,7 @@ export async function getAuthSession() {
  */
 export async function getUserId(): Promise<string | null> {
   const session = await getAuthSession()
-  return session?.user?.id || null
+  return (session?.user as { id?: string | null } | null)?.id || null
 }
 
 /**
@@ -54,13 +54,14 @@ export async function isAuthenticated(): Promise<boolean> {
  */
 export async function requireAuth(): Promise<{ id: string; email: string | null; name: string | null }> {
   const session = await getAuthSession()
-  if (!session?.user?.id) {
+  const userData = session?.user as { id?: string | null; email?: string | null; name?: string | null } | null
+  if (!userData?.id) {
     throw new Error("Authentication required")
   }
   return {
-    id: session.user.id,
-    email: session.user.email || null,
-    name: session.user.name || null,
+    id: userData.id,
+    email: userData.email || null,
+    name: userData.name || null,
   }
 }
 
