@@ -7,7 +7,8 @@ export async function POST(request: Request) {
   try {
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id
+    if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -25,7 +26,7 @@ export async function POST(request: Request) {
     const pool = getContaboPool()
     const result = await pool.query(
       "SELECT password_hash FROM profiles WHERE id = $1 LIMIT 1",
-      [session.user.id]
+      [userId]
     )
 
     if (result.rows.length === 0) {
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
       const hashedPassword = await bcrypt.hash(newPassword, 10)
       await pool.query(
         "UPDATE profiles SET password_hash = $1 WHERE id = $2",
-        [hashedPassword, session.user.id]
+        [hashedPassword, userId]
       )
       return NextResponse.json({ success: true, message: "Password set successfully" })
     }
@@ -56,14 +57,14 @@ export async function POST(request: Request) {
     const hashedPassword = await bcrypt.hash(newPassword, 10)
     await pool.query(
       "UPDATE profiles SET password_hash = $1 WHERE id = $2",
-      [hashedPassword, session.user.id]
+      [hashedPassword, userId]
     )
 
     // Also update NextAuth users table if it exists
     try {
       await pool.query(
         "UPDATE users SET password = $1 WHERE id = $2",
-        [hashedPassword, session.user.id]
+        [hashedPassword, userId]
       )
     } catch (error) {
       // Ignore if users table doesn't exist or doesn't have password column
