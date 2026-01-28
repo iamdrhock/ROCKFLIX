@@ -13,11 +13,10 @@ export async function POST(request: NextRequest) {
     // Check if user is authenticated
     const session = await getAuthSession()
 
-    if (!session?.user?.id) {
+    const userId = (session?.user as { id?: string | null } | null)?.id || null
+    if (!userId) {
       return NextResponse.json({ error: "You must be logged in to comment" }, { status: 401 })
     }
-
-    const userId = session.user.id
 
     // Check request size
     const sizeCheck = checkRequestSize(request)
