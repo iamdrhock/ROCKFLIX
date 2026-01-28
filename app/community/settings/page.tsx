@@ -74,7 +74,8 @@ export default function TalkFlixSettingsPage() {
           throw new Error(result.error)
         }
 
-        profilePictureUrl = result.url
+        const uploadedUrl: string | null = result.url ?? null
+        profilePictureUrl = uploadedUrl
       }
 
       // Update profile via API route (uses Contabo when enabled)
