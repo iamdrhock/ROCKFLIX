@@ -13,6 +13,8 @@ export const POST = adminRoute(async ({ request }) => {
     }
 
     const sql = neon(databaseUrl)
+    const executeSql = (query: string, values?: unknown[]) =>
+      (sql as unknown as (query: string, values?: unknown[]) => Promise<unknown>)(query, values)
 
     console.log("[v0] Starting database import to DigitalOcean PostgreSQL")
 
@@ -61,7 +63,7 @@ export const POST = adminRoute(async ({ request }) => {
                 ON CONFLICT DO NOTHING
               `
 
-              await sql(query, values)
+              await executeSql(query, values)
               imported++
             } catch (err) {
               failed++
